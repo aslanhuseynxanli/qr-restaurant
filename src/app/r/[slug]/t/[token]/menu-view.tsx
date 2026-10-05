@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import type { QRMenu } from "@/lib/qr-menu";
 
@@ -38,7 +39,7 @@ export default function MenuView({ slug, token, initialMenu }: { slug: string; t
       {visible && (menu.categories.length === 0 ? <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500">Menyuya hələ məhsul əlavə edilməyib.</div> : menu.categories.map((category) => <section key={category.id} className="space-y-3">
         <h2 className="text-xl font-semibold">{category.name}</h2>{category.description && <p className="text-sm text-slate-600">{category.description}</p>}
         {category.products.map((product) => <article key={product.id} className={`flex justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4 ${!product.is_available ? "opacity-60" : ""}`}>
-          <div><h3 className="font-medium">{product.name}</h3>{product.description && <p className="mt-1 text-sm text-slate-500">{product.description}</p>}{!product.is_available && <p className="mt-1 text-xs text-amber-700">Hazırda mövcud deyil</p>}</div>
+          <div className="flex min-w-0 gap-3">{product.image_url && <Image unoptimized src={product.image_url} width={80} height={80} alt={product.name} className="h-20 w-20 shrink-0 rounded-xl object-cover" />}<div><h3 className="font-medium">{product.name}</h3>{product.description && <p className="mt-1 text-sm text-slate-500">{product.description}</p>}{!product.is_available && <p className="mt-1 text-xs text-amber-700">Hazırda mövcud deyil</p>}</div></div>
           <p className="whitespace-nowrap font-medium text-emerald-700">{Number(product.price).toFixed(2)} {menu.currency}</p>
         </article>)}
       </section>))}
