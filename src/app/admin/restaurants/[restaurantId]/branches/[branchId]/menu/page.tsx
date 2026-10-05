@@ -1,3 +1,4 @@
+import { loadMenuCategories, loadMenuProducts, loadBranchProductSettings } from "@/lib/menu-query";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -11,9 +12,9 @@ export default async function BranchMenuPage({ params }: { params: Promise<{ res
   const { supabase, restaurant, canManage } = await requireMenuAdmin(restaurantId);
   const [branchResult, categoryResult, productResult, settingResult] = await Promise.all([
     supabase.from("branches").select("id,name,is_active").eq("id", branchId).eq("restaurant_id", restaurantId).maybeSingle(),
-    supabase.from("categories").select("id,name,description,sort_order,is_active,updated_at").eq("restaurant_id", restaurantId).order("sort_order").order("name"),
-    supabase.from("products").select("id,category_id,name,description,base_price,image_url,sort_order,is_active,updated_at").eq("restaurant_id", restaurantId).order("sort_order").order("name"),
-    supabase.from("branch_product_settings").select("product_id,price_override,is_available,is_visible,updated_at").eq("restaurant_id", restaurantId).eq("branch_id", branchId),
+    loadMenuCategories(supabase, restaurantId),
+    loadMenuProducts(supabase, restaurantId),
+    loadBranchProductSettings(supabase, restaurantId, branchId),
   ]);
   if ([branchResult, categoryResult, productResult, settingResult].some((result) => result.error)) throw new Error("Filial menyusu yüklənmədi.");
   const branch = branchResult.data;

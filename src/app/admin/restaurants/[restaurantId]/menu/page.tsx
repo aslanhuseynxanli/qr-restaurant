@@ -1,3 +1,5 @@
+import { loadMenuCategories, loadMenuProducts } from "@/lib/menu-query";
+import MenuImportPanel from "./import-panel";
 import Image from "next/image";
 import Link from "next/link";
 import { requireMenuAdmin } from "@/lib/menu-admin";
@@ -8,8 +10,8 @@ export default async function MenuAdminPage({ params }: { params: Promise<{ rest
   const { restaurantId } = await params;
   const { supabase, restaurant, canManage } = await requireMenuAdmin(restaurantId);
   const [categoryResult, productResult, branchResult] = await Promise.all([
-    supabase.from("categories").select("id,name,description,sort_order,is_active,updated_at").eq("restaurant_id", restaurantId).order("sort_order").order("name").order("id"),
-    supabase.from("products").select("id,category_id,name,description,base_price,image_url,sort_order,is_active,updated_at").eq("restaurant_id", restaurantId).order("sort_order").order("name").order("id"),
+    loadMenuCategories(supabase, restaurantId),
+    loadMenuProducts(supabase, restaurantId),
     supabase.from("branches").select("id,name,is_active").eq("restaurant_id", restaurantId).order("name"),
   ]);
   if ([categoryResult, productResult, branchResult].some((result) => result.error)) throw new Error("Menyu məlumatları yüklənmədi.");
@@ -19,6 +21,7 @@ export default async function MenuAdminPage({ params }: { params: Promise<{ rest
     <Link href={`/admin/restaurants/${restaurantId}`} className="text-sm text-emerald-700 hover:underline">← {restaurant.name}</Link>
     <header><h1 className="text-2xl font-semibold">Restoran menyusu</h1><p className="mt-2 text-sm text-slate-600">Kateqoriya və məhsullar bütün filiallar üçün ortaqdır. Filial üzrə qiymət və mövcudluğu ayrıca dəyişə bilərsən.</p></header>
     {!canManage && <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">Restoran aktiv olmadığından menyuda dəyişiklik etmək mümkün deyil.</p>}
+    {canManage && <MenuImportPanel restaurantId={restaurantId} categories={categories} products={products} />}
     {canManage && <div className="grid items-start gap-6 lg:grid-cols-2">
       <section className="rounded-2xl border border-slate-200 bg-white p-5"><h2 className="mb-4 text-lg font-semibold">Kateqoriya əlavə et</h2><CategoryForm key={`new-category-${categories.length}`} restaurantId={restaurantId} /></section>
       <section className="rounded-2xl border border-slate-200 bg-white p-5"><h2 className="mb-4 text-lg font-semibold">Məhsul əlavə et</h2>{categories.length ? <ProductForm key={`new-product-${products.length}`} restaurantId={restaurantId} categories={categories} /> : <p className="text-sm text-slate-500">Əvvəl bir kateqoriya yarat, sonra həmin kateqoriyaya məhsul əlavə et.</p>}</section>

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { isMenuImageUrl } from "@/lib/menu-image-url";
 import { menuSortOrder, parseMenuPrice, uuidPattern, type MenuActionState } from "@/lib/menu-management";
 
 const field = (form: FormData, name: string) => String(form.get(name) || "").trim();
@@ -38,12 +39,7 @@ export async function saveProductAction(_previous: MenuActionState, form: FormDa
   const price = parseMenuPrice(field(form, "base_price")), order = menuSortOrder(field(form, "sort_order"));
   if (!uuidPattern.test(restaurantId) || (productId && !uuidPattern.test(productId)) || !uuidPattern.test(categoryId) ||
     !name || name.length > 150 || description.length > 2000 || price === null || order === null) return { error: "Məhsulun adı, kateqoriyası və qiymətini düzgün doldur." };
-  if (image) {
-    const base = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
-    const prefix = `${base}/storage/v1/object/public/menu-images/${restaurantId.toLowerCase()}/`;
-    if (!base || !image.startsWith(prefix) || !/^[0-9a-f-]{36}\.(jpg|png|webp)$/.test(image.slice(prefix.length)))
-      return { error: "Şəkli bu restoran üçün fayl seçimi ilə yüklə." };
-  }
+  if (!isMenuImageUrl(image)) return { error: "Şəkil üçün düzgün HTTPS keçidi seç." };
   try {
     const supabase = await createClient();
     const { data, error: authError } = await supabase.auth.getUser();
