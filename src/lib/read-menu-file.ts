@@ -4,13 +4,20 @@ function cells(data: unknown[][]): string[][] {
   return data.map((row) => row.map((cell) => cell == null ? "" : cell instanceof Date ? cell.toISOString() : String(cell)));
 }
 export async function readMenuFile(file: File): Promise<ImportSheet[]> {
-  if (file.size === 0 || file.size > 5 * 1024 * 1024) throw new Error("Fayl boş olmamalı və 5 MB-dan böyük olmamalıdır.");
   const extension = file.name.split('.').pop()?.toLowerCase();
+  const limit = extension === "xlsx" ? 25 : 5;
+  if (file.size === 0 || file.size > limit * 1024 * 1024) throw new Error(`Fayl boş olmamalı və ${limit} MB-dan böyük olmamalıdır.`);
   let sheets: ImportSheet[];
   if (extension === "xlsx") {
+    const { readExcelImages } = await import("./excel-menu-images");
+    const pictures = await readExcelImages(file);
     const { default: readExcelFile } = await import("read-excel-file/browser");
     const result = await readExcelFile(file);
-    sheets = result.map((sheet) => ({ name: sheet.sheet, data: cells(sheet.data) }));
+    sheets = result.map((sheet) => {
+      const images = pictures.get(sheet.sheet), data = cells(sheet.data);
+      for (const item of images?.urls || []) if (data[item.rowNumber - 1]) data[item.rowNumber - 1][item.column] = item.url;
+      return { name: sheet.sheet, data, images: images?.images, imageWarnings: images?.warnings };
+    });
   } else if (extension === "csv") {
     const { default: Papa } = await import("papaparse");
     const bytes = new Uint8Array(await file.arrayBuffer());
