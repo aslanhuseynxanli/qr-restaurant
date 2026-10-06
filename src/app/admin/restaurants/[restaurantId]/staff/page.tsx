@@ -14,7 +14,7 @@ export default async function StaffPage({params}:{params:Promise<{restaurantId:s
   const board=data as StaffManagementBoard;
   return <main className="min-h-screen bg-slate-50 p-4 text-slate-900 sm:p-8"><div className="mx-auto max-w-6xl space-y-6">
     <Link href={`/admin/restaurants/${restaurantId}`} className="text-sm font-medium text-emerald-700">← Ümumi baxışa qayıt</Link>
-    <header><h1 className="text-2xl font-semibold">İşçilər</h1><p className="mt-2 text-sm text-slate-500">{board.restaurant_name} · Hər işçi təyin olunduğu filialın sifarişlərini və çağırışlarını idarə edir.</p></header>
+    <header><h1 className="text-2xl font-semibold">İşçilər</h1><p className="mt-2 text-sm text-slate-500">{board.restaurant_name} · İşçinin filialını və vəzifəsini seç. Ofisiant və mətbəx öz panelində işləyir.</p></header>
     <StaffPanel restaurantId={restaurantId} board={board}/>
   </div></main>;
 }

@@ -4,14 +4,14 @@ import {createClient} from "@/lib/supabase/server";
 import {signOutAction} from "@/app/login/actions";
 
 type Restaurant={id:string;name:string;slug:string;status:string;is_active:boolean};
-type Assignment={id:string;name:string;restaurant_id:string;restaurant_name:string};
+type Assignment={id:string;name:string;restaurant_id:string;restaurant_name:string;staff_kind:"WAITER"|"KITCHEN"};
 export default async function AdminPage() {
   const supabase=await createClient(),{data:{user},error:authError}=await supabase.auth.getUser();
   if(authError||!user)redirect("/login");
   const [profileResult,platformResult,membersResult]=await Promise.all([
     supabase.from("profiles").select("full_name,is_active").eq("id",user.id).maybeSingle(),
     supabase.from("platform_admins").select("role").eq("user_id",user.id).eq("is_active",true).maybeSingle(),
-    supabase.from("restaurant_members").select("role,restaurant_id,branch_id").eq("user_id",user.id).eq("is_active",true),
+    supabase.from("restaurant_members").select("role,restaurant_id,branch_id,staff_kind").eq("user_id",user.id).eq("is_active",true),
   ]);
   if(profileResult.error||platformResult.error||membersResult.error)throw new Error("Hesab icazələri oxunmadı. Yenidən cəhd et.");
   const profile=profileResult.data,members=membersResult.data||[];
@@ -29,7 +29,7 @@ export default async function AdminPage() {
       if(result.error)throw new Error("Təyin olunan filiallar yüklənmədi.");
       assignments=(result.data||[]).flatMap(b=>{
         const restaurant=visible.find(r=>r.id===b.restaurant_id&&r.is_active&&["active","trial"].includes(r.status));
-        return restaurant&&staff.some(m=>m.branch_id===b.id&&m.restaurant_id===b.restaurant_id)?[{...b,restaurant_name:restaurant.name}]:[];
+        return restaurant&&staff.some(m=>m.branch_id===b.id&&m.restaurant_id===b.restaurant_id)?[{...b,restaurant_name:restaurant.name,staff_kind:staff.find(m=>m.branch_id===b.id&&m.restaurant_id===b.restaurant_id)?.staff_kind==="KITCHEN"?"KITCHEN" as const:"WAITER" as const}]:[];
       });
     }
   }
@@ -45,7 +45,7 @@ export default async function AdminPage() {
     {role&&role!=="STAFF"&&<section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6"><h2 className="text-lg font-semibold">Restoranlar ({restaurants.length})</h2>{!restaurants.length&&<p className="text-sm text-slate-500">Hələ restoran əlavə edilməyib.</p>}
       {restaurants.map(r=><div key={r.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4"><div><Link href={`/admin/restaurants/${r.id}`} className="break-words font-medium text-emerald-700">{r.name}</Link><p className="mt-1 text-sm text-slate-500">{r.slug}</p></div><div className="flex flex-wrap items-center gap-2">{role==="SUPER_ADMIN"&&<Link href={`/admin/restaurants/${r.id}/owners`} className="min-h-11 rounded-xl border border-emerald-200 px-4 py-3 text-sm font-medium text-emerald-800">Sahib hesabı</Link>}<span className="rounded-lg bg-slate-100 px-3 py-2 text-xs">{!r.is_active?"Deaktiv":r.status==="active"?"Aktiv":r.status==="trial"?"Sınaq":"Dayandırılıb"}</span>{r.is_active&&["active","trial"].includes(r.status)&&<Link href={`/admin/restaurants/${r.id}/staff`} className="min-h-11 rounded-xl border border-emerald-200 px-4 py-3 text-sm font-medium text-emerald-800">İşçilər</Link>}</div></div>)}
     </section>}
-    {!!assignments.length&&<section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6"><h2 className="text-lg font-semibold">Təyin olunan filiallar</h2>{assignments.map(b=><div key={b.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 p-4"><div><p className="break-words font-semibold">{b.name}</p><p className="mt-1 text-sm text-slate-500">{b.restaurant_name}</p></div><div className="flex flex-wrap gap-2"><Link href={`/admin/restaurants/${b.restaurant_id}/branches/${b.id}/orders`} className="min-h-12 rounded-xl bg-emerald-800 px-4 py-3 text-sm font-semibold text-white">Sifarişlər və çağırışlar</Link><Link prefetch={false} href={`/admin/restaurants/${b.restaurant_id}/branches/${b.id}/kitchen`} className="min-h-12 rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm font-semibold text-emerald-800">Mətbəx ekranı</Link></div></div>)}</section>}
+    {!!assignments.length&&<section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6"><h2 className="text-lg font-semibold">Təyin olunan filiallar</h2>{assignments.map(b=><div key={b.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 p-4"><div><p className="break-words font-semibold">{b.name}</p><p className="mt-1 text-sm text-slate-500">{b.restaurant_name} · {b.staff_kind==="KITCHEN"?"Mətbəx":"Ofisiant"}</p></div><div className="flex flex-wrap gap-2">{b.staff_kind!=="KITCHEN"?<Link href={`/admin/restaurants/${b.restaurant_id}/branches/${b.id}/orders`} className="min-h-12 rounded-xl bg-emerald-800 px-4 py-3 text-sm font-semibold text-white">Sifarişlər və çağırışlar</Link>:<Link prefetch={false} href={`/admin/restaurants/${b.restaurant_id}/branches/${b.id}/kitchen`} className="min-h-12 rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm font-semibold text-emerald-800">Mətbəx ekranı</Link>}</div></div>)}</section>}
     {role==="STAFF"&&!assignments.length&&<p role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">Hazırda giriş edə biləcəyin aktiv filial yoxdur. Restoran sahibi ilə əlaqə saxla.</p>}
     </div>
   </main>;

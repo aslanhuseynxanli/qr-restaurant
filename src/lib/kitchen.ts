@@ -3,7 +3,7 @@ export const kitchenLanes={NEW:"Yeni sifarişlər",WORKING:"Hazırlanan",READY:"
 export type KitchenLane=keyof typeof kitchenLanes;
 export type KitchenFilters={search:string;limit:number};
 export type KitchenOrder={id:string;number:string;status:Extract<OrderStatus,"NEW"|"ACCEPTED"|"PREPARING"|"READY">;version:number;lane:KitchenLane;table_id:string;table_number:number;table_name:string;note:string|null;created_at:string;updated_at:string;items:{name:string;quantity:string}[]};
-export type KitchenBoard={restaurant_name:string;branch_name:string;generated_at:string;filters:KitchenFilters;sound_enabled:boolean;latest_new_number:string|null;counts:Record<KitchenLane,string>;orders:KitchenOrder[]};
+export type KitchenBoard={restaurant_name:string;branch_name:string;generated_at:string;filters:KitchenFilters;can_service:boolean;sound_enabled:boolean;latest_new_number:string|null;counts:Record<KitchenLane,string>;orders:KitchenOrder[]};
 export const kitchenNext={NEW:"ACCEPTED",ACCEPTED:"PREPARING",PREPARING:"READY"} as const;
 export const kitchenActionLabels={NEW:"Qəbul et",ACCEPTED:"Hazırlamağa başla",PREPARING:"Hazırdır"} as const;
 export const validKitchenLimit=(v:unknown):v is number=>typeof v==="number"&&Number.isInteger(v)&&v>=30&&v<=150&&v%30===0;

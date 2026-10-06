@@ -41,6 +41,6 @@ export default function KitchenPanel({restaurantId,branchId,initialBoard,warning
         {hasMore&&(board.filters.limit<150?<button type="button" disabled={Boolean(live.pending)} onClick={()=>void live.refresh(board.filters.limit+30)} className={`${button} w-full`}>Daha çox sifariş göstər</button>:<p className="rounded-xl bg-slate-100 p-4 text-sm leading-6 text-slate-600">İlk 150 sifariş göstərilir. Qalanları tapmaq üçün masa və ya #sifariş nömrəsi ilə axtar.</p>)}
       </section>;
     })}</div>
-    <Link prefetch={false} href={`${root}/orders`} className={button}>Servis və hesab üçün işçi panelini aç →</Link>
+    {board.can_service&&<Link prefetch={false} href={`${root}/orders`} className={button}>Servis və hesab üçün işçi panelini aç →</Link>}
   </div>;
 }

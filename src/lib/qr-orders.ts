@@ -9,7 +9,7 @@ export function isPaymentMethod(value:unknown): value is PaymentMethod { return 
 export type QRService = {id:string;kind:"WAITER"|"BILL";payment_method?:PaymentMethod|null;status:"NEW"|"SEEN"|"DONE";version?:number;created_at:string;updated_at?:string};
 export type VisitView = {session:{id:string;status:"OPEN"|"BILL_REQUESTED"|"CLOSED";table_name:string};orders:QROrder[];services:QRService[]};
 export type StaffSession = VisitView["session"] & {version:number;table_number:number;opened_at:string;payment_total?:string;total:number;currency:string;orders:QROrder[];services:QRService[]};
-export type StaffBoard = {sessions:StaffSession[];sound_enabled?:boolean};
+export type StaffBoard = {sessions:StaffSession[];sound_enabled?:boolean;can_prepare?:boolean;viewer_role?:"OWNER"|"WAITER"};
 export type CartLine = {id:string;name:string;quantity:number;price:number};
 export function money(value:number,currency="AZN") { return `${Number(value).toFixed(2)} ${currency}`; }
 export function clockTime(value:string) { return new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Baku",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).format(new Date(value)); }

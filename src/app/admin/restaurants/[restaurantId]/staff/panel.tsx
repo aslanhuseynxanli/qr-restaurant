@@ -2,6 +2,7 @@
 import {useActionState,useEffect,useRef,useState} from "react";
 import {useRouter} from "next/navigation";
 import Link from "next/link";
+import {staffKinds,isStaffKind,type StaffKind} from "@/lib/staff-management";
 import type {StaffActionState,StaffManagementBoard,StaffMember,StaffBranch} from "@/lib/staff-management";
 import {createStaffAction,updateStaffAction} from "./actions";
 
@@ -20,7 +21,8 @@ function StaffRow({restaurantId,member,branches}:{restaurantId:string;member:Sta
     <input type="hidden" name="restaurant_id" value={restaurantId}/><input type="hidden" name="member_id" value={member.id}/><input type="hidden" name="version" value={member.version}/>
     <div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0"><h3 className="break-words font-semibold">{member.full_name||"İşçi"}</h3><p className="mt-1 break-all text-sm text-slate-500">{member.email}</p></div><span className={`rounded-full px-3 py-1.5 text-xs font-medium ${member.is_active&&member.profile_active?"bg-emerald-50 text-emerald-800":"bg-slate-100 text-slate-600"}`}>{member.is_active&&member.profile_active?"Aktiv":"Deaktiv"}</span></div>
     {!member.profile_active&&<p className="text-xs leading-5 text-amber-800">Profil platforma üzrə deaktivdir. Super Adminə müraciət et.</p>}
-    <div className="grid gap-3 sm:grid-cols-2"><label className="space-y-2 text-sm font-medium"><span>Filial</span><select name="branch_id" aria-label="Filial" defaultValue={member.branch_id} disabled={pending} required className={input}>{branches.filter(b=>b.is_active||b.id===member.branch_id).map(b=><option key={b.id} value={b.id}>{b.name}{!b.is_active?" (deaktiv)":""}</option>)}</select></label>
+    <div className="grid gap-3 sm:grid-cols-3"><label className="space-y-2 text-sm font-medium"><span>Filial</span><select name="branch_id" aria-label="Filial" defaultValue={member.branch_id} disabled={pending} required className={input}>{branches.filter(b=>b.is_active||b.id===member.branch_id).map(b=><option key={b.id} value={b.id}>{b.name}{!b.is_active?" (deaktiv)":""}</option>)}</select></label>
+    <label className="space-y-2 text-sm font-medium"><span>Vəzifə</span><select name="staff_kind" aria-label="Vəzifə" defaultValue={member.staff_kind} disabled={pending} className={input}>{Object.entries(staffKinds).map(([kind,label])=><option key={kind} value={kind}>{label}</option>)}</select></label>
     <label className="space-y-2 text-sm font-medium"><span>Giriş</span><select name="is_active" aria-label="Giriş" defaultValue={String(member.is_active)} disabled={pending} className={input}><option value="true">Aktiv</option><option value="false">Deaktiv</option></select></label></div>
     <button disabled={pending} className={button}>{pending?"Yadda saxlanır...":"Yadda saxla"}</button><Feedback state={state}/>
   </form>;
@@ -28,7 +30,7 @@ function StaffRow({restaurantId,member,branches}:{restaurantId:string;member:Sta
 export default function StaffPanel({restaurantId,board}:{restaurantId:string;board:StaffManagementBoard}) {
   const router=useRouter(),request=useRef<string|null>(null);
   const [showPassword,setShowPassword]=useState(false),[search,setSearch]=useState("");
-  const [details,setDetails]=useState({full_name:"",email:"",password:"",branch_id:board.branches.find(b=>b.is_active)?.id||""});
+  const [details,setDetails]=useState({full_name:"",email:"",password:"",branch_id:board.branches.find(b=>b.is_active)?.id||"",staff_kind:"WAITER" as StaffKind});
   const [state,action,pending]=useActionState(async(prev:StaffActionState,form:FormData)=>{
     request.current??=crypto.randomUUID();form.set("request_id",request.current);
     try {
@@ -44,7 +46,7 @@ export default function StaffPanel({restaurantId,board}:{restaurantId:string;boa
   },[router]);
   const branches=board.branches.filter(b=>b.is_active),members=board.members.filter(m=>`${m.full_name} ${m.email}`.toLocaleLowerCase("az").includes(search.toLocaleLowerCase("az")));
   return <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"><h2 className="text-lg font-semibold">İşçi əlavə et</h2><p className="mt-2 text-sm leading-6 text-slate-500">Email və parolu işçiyə ver. İşçi saytın giriş səhifəsindən daxil olacaq.</p>
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"><h2 className="text-lg font-semibold">İşçi əlavə et</h2><p className="mt-2 text-sm leading-6 text-slate-500">Vəzifəni seç, email və parolu işçiyə ver. Ofisiant servis və çağırışlarla, mətbəx sifarişlərin hazırlanması ilə işləyir.</p>
     {!branches.length?<p className="mt-5 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Əvvəl <Link href={`/admin/restaurants/${restaurantId}`} className="font-semibold underline">aktiv filial əlavə et</Link>.</p>:<form action={action} className="mt-5 space-y-4">
       <input type="hidden" name="restaurant_id" value={restaurantId}/>
       <label className="block space-y-2 text-sm font-medium"><span>Ad və soyad</span><input name="full_name" value={details.full_name} onChange={e=>setDetails(d=>({...d,full_name:e.target.value}))} required maxLength={150} autoComplete="off" disabled={pending} className={input}/></label>
@@ -52,6 +54,7 @@ export default function StaffPanel({restaurantId,board}:{restaurantId:string;boa
       <label className="block space-y-2 text-sm font-medium"><span>Parol</span><input name="password" aria-label="Parol" aria-describedby="staff-password-help" value={details.password} onChange={e=>setDetails(d=>({...d,password:e.target.value}))} type={showPassword?"text":"password"} required minLength={12} maxLength={128} autoComplete="new-password" disabled={pending} className={input}/><span id="staff-password-help" className="block text-xs font-normal leading-5 text-slate-500">Ən azı 12 simvol, hərf və rəqəm.</span></label>
       <button type="button" aria-pressed={showPassword} onClick={()=>setShowPassword(v=>!v)} disabled={pending} className="min-h-11 text-sm font-medium text-emerald-800">{showPassword?"Parolu gizlət":"Parolu göstər"}</button>
       <label className="block space-y-2 text-sm font-medium"><span>Təyin edilən filial</span><select name="branch_id" aria-label="Təyin edilən filial" value={details.branch_id} onChange={e=>setDetails(d=>({...d,branch_id:e.target.value}))} required disabled={pending} className={input}>{branches.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
+      <label className="block space-y-2 text-sm font-medium"><span>Vəzifə</span><select name="staff_kind" aria-label="Yeni işçinin vəzifəsi" value={details.staff_kind} onChange={e=>{const value=e.target.value;if(isStaffKind(value))setDetails(d=>({...d,staff_kind:value}));}} required disabled={pending} className={input}>{Object.entries(staffKinds).map(([kind,label])=><option key={kind} value={kind}>{label}</option>)}</select></label>
       <button disabled={pending} className={`${button} w-full`}>{pending?"İşçi yaradılır...":"İşçini yarat"}</button>
     </form>}<div className="mt-4"><Feedback state={state}/></div></section>
     <section className="min-w-0 space-y-4"><div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-lg font-semibold">İşçi siyahısı ({board.members.length})</h2><button onClick={()=>router.refresh()} className="min-h-11 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm">Siyahını yenilə</button></div>

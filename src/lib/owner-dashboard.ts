@@ -70,6 +70,8 @@ export function ownerEventDetails(event:OwnerEvent) {
   if(d.total!==undefined)result.push(ownerMoney(d.total,event.currency||""));
   if(d.base_price!==undefined)result.push(`Qiymət: ${ownerMoney(d.base_price,event.currency||"")}`);
   if(d.price_override!==undefined)result.push(`Filial qiyməti: ${ownerMoney(d.price_override,event.currency||"")}`);
+  const staffNames:Record<string,string>={WAITER:"Ofisiant",KITCHEN:"Mətbəx"};
+  if(typeof d.staff_kind==="string"&&staffNames[d.staff_kind])result.push(typeof d.old_staff_kind==="string"&&staffNames[d.old_staff_kind]&&d.old_staff_kind!==d.staff_kind?`Vəzifə: ${staffNames[d.old_staff_kind]} → ${staffNames[d.staff_kind]}`:`Vəzifə: ${staffNames[d.staff_kind]}`);
   if(typeof d.is_active==="boolean")result.push(event.category==="TEAM"?`Giriş: ${d.is_active?"aktiv":"deaktiv"}`:`${d.is_active?"Aktiv":"Deaktiv"}`);
   if(typeof d.is_available==="boolean")result.push(d.is_available?"Məhsul mövcuddur":"Məhsul mövcud deyil");
   if(typeof d.is_visible==="boolean")result.push(d.is_visible?"Menyuda görünür":"Menyuda gizlidir");
