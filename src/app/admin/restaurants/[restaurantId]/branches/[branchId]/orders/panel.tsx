@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect,useRef,useState } from "react";
+import Link from "next/link";
 import { Bell,Check,Clock,ReceiptText,RefreshCw } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { clockTime,money,nextStatus,orderError,orderLabels,type OrderStatus,type StaffBoard,type StaffSession } from "@/lib/qr-orders";
@@ -9,11 +10,13 @@ const actionLabels:Partial<Record<OrderStatus,string>>={NEW:"Qəbul et",ACCEPTED
 export default function OrdersPanel({restaurantId,branchId,initialBoard}:{restaurantId:string;branchId:string;initialBoard:StaffBoard}) {
   const [board,setBoard]=useState(initialBoard),[busy,setBusy]=useState(""),[message,setMessage]=useState(""),[stale,setStale]=useState(false),[filter,setFilter]=useState("all");
   const actionRef=useRef(false),revision=useRef(0);
+  const [denied,setDenied]=useState(false);
   async function reload() {
     if(actionRef.current)return;
     const generation=revision.current;
     const {data,error}=await createClient().rpc("qr_staff_board",{p_restaurant_id:restaurantId,p_branch_id:branchId});
     if(generation!==revision.current)return;
+    if(error?.code==="42501"){setBoard({sessions:[]});setDenied(true);return;}
     if(error||!data){setStale(true);return;}
     setBoard(data as StaffBoard);setStale(false);
   }
@@ -21,7 +24,7 @@ export default function OrdersPanel({restaurantId,branchId,initialBoard}:{restau
     let stopped=false,timer:ReturnType<typeof setTimeout>;
     async function poll(){if(stopped)return;if(document.visibilityState==="visible"&&!actionRef.current){
       const generation=revision.current;
-      try{const {data,error}=await createClient().rpc("qr_staff_board",{p_restaurant_id:restaurantId,p_branch_id:branchId});if(!stopped&&generation===revision.current){if(error||!data)setStale(true);else{setBoard(data as StaffBoard);setStale(false);}}}catch{if(!stopped)setStale(true);}
+      try{const {data,error}=await createClient().rpc("qr_staff_board",{p_restaurant_id:restaurantId,p_branch_id:branchId});if(!stopped&&generation===revision.current){if(error?.code==="42501"){setBoard({sessions:[]});setDenied(true);}else if(error||!data)setStale(true);else{setBoard(data as StaffBoard);setStale(false);}}}catch{if(!stopped)setStale(true);}
     }if(!stopped)timer=setTimeout(poll,4000);}
     void poll();const visible=()=>{if(document.visibilityState==="visible"){clearTimeout(timer);void poll();}};
     document.addEventListener("visibilitychange",visible);return()=>{stopped=true;clearTimeout(timer);document.removeEventListener("visibilitychange",visible);};
@@ -30,7 +33,7 @@ export default function OrdersPanel({restaurantId,branchId,initialBoard}:{restau
     if(actionRef.current)return;actionRef.current=true;revision.current++;setBusy(id);setMessage("");
     try {
       const {data,error}=await createClient().rpc("qr_staff_action",{p_restaurant_id:restaurantId,p_branch_id:branchId,p_kind:kind,p_id:id,p_version:version,p_status:status});
-      if(error){const code=error.code==="42501"?"FORBIDDEN":error.message;throw new Error(orderError(code));}
+      if(error){if(error.code==="42501"){setBoard({sessions:[]});setDenied(true);}const code=error.code==="42501"?"FORBIDDEN":error.message;throw new Error(orderError(code));}
       if(!data)throw new Error(orderError());setBoard(data as StaffBoard);setStale(false);
     }catch(error){setMessage(error instanceof Error?error.message:orderError());}
     finally{actionRef.current=false;setBusy("");await reload().catch(()=>setStale(true));}
@@ -41,6 +44,7 @@ export default function OrdersPanel({restaurantId,branchId,initialBoard}:{restau
   const newOrders=board.sessions.flatMap(x=>x.orders).filter(x=>x.status==="NEW").length;
   const newCalls=board.sessions.flatMap(x=>x.services).filter(x=>x.status==="NEW").length;
   const shown=board.sessions.filter(x=>filter==="all"||filter==="new"&&x.orders.some(o=>o.status==="NEW")||filter==="calls"&&x.services.length>0);
+  if(denied)return <section className="space-y-4 rounded-2xl border border-red-200 bg-white p-6"><p role="alert" className="text-sm leading-6 text-red-800">Bu filiala girişin bağlanıb və ya təyinatın dəyişib. Cari filialını paneldən yoxla.</p><Link href="/admin" className="inline-flex min-h-12 items-center rounded-xl bg-emerald-800 px-4 py-3 text-sm font-semibold text-white">Panelə qayıt</Link></section>;
   return <>
     <div className="grid gap-3 sm:grid-cols-3"><div className="rounded-2xl border border-slate-200 bg-white p-4"><p className="text-xs text-slate-500">Yeni sifarişlər</p><p className="mt-2 text-2xl font-semibold text-emerald-800">{newOrders}</p></div><div className="rounded-2xl border border-slate-200 bg-white p-4"><p className="text-xs text-slate-500">Yeni çağırışlar</p><p className="mt-2 text-2xl font-semibold text-amber-700">{newCalls}</p></div><div className="rounded-2xl border border-slate-200 bg-white p-4"><p className="text-xs text-slate-500">Açıq masalar</p><p className="mt-2 text-2xl font-semibold">{board.sessions.length}</p></div></div>
     <div className="flex flex-wrap items-center justify-between gap-3"><nav aria-label="Sifariş filtri" className="flex flex-wrap gap-2">{[{id:"all",name:"Bütün masalar"},{id:"new",name:"Yeni sifarişlər"},{id:"calls",name:"Çağırışlar"}].map(x=><button key={x.id} onClick={()=>setFilter(x.id)} aria-pressed={filter===x.id} className={`min-h-11 rounded-xl px-4 py-2 text-sm font-medium ${filter===x.id?"bg-emerald-800 text-white":"border border-slate-200 bg-white"}`}>{x.name}</button>)}</nav><div className="flex items-center gap-3"><span className={`text-xs ${stale?"text-red-700":"text-slate-500"}`}>{stale?"Bağlantı kəsilib — məlumat köhnə ola bilər":"4 saniyədən bir yenilənir"}</span><button aria-label="Paneli yenilə" onClick={()=>void reload().catch(()=>setStale(true))} disabled={!!busy} className="rounded-xl border border-slate-200 bg-white p-3"><RefreshCw size={16}/></button></div></div>

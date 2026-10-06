@@ -8,7 +8,7 @@ export default function MenuNavigation({ restaurantId }: { restaurantId: string 
   const params = useParams();
   const branchId = typeof params.branchId === "string" && uuidPattern.test(params.branchId) ? params.branchId : null;
   const root = `/admin/restaurants/${restaurantId}`;
-  const links = [{ href: root, label: "Filiallar" }, { href: `${root}/menu`, label: "Restoran menyusu" }];
+  const links = [{ href: root, label: "Filiallar" }, { href: `${root}/menu`, label: "Restoran menyusu" }, { href: `${root}/staff`, label: "İşçilər" }];
   if (branchId) links.push({ href: `${root}/branches/${branchId}`, label: "Masalar və QR" }, { href: `${root}/branches/${branchId}/menu`, label: "Filial menyusu" });
   // qr-orders-nav-v1
   if (branchId) links.push({ href: `${root}/branches/${branchId}/orders`, label: "Sifarişlər və çağırışlar" });
