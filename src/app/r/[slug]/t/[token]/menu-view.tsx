@@ -140,8 +140,12 @@ export default function MenuView({slug,token,initialMenu}:{slug:string;token:str
   }
   async function service(kind:"WAITER"|"BILL") {
     await run(kind==="WAITER"?"Ofisiant çağırılır...":"Hesab istənilir...",async()=>{
-      const coords=await gps(menu.location.required);await ensureVisit(coords);
+      const coords=await gps(menu.location.required),active=await ensureVisit(coords);
       const current=draftRef.current;
+      if(kind==="BILL"&&!active?.orders.some(o=>o.status!=="CANCELLED")) {
+        if(current.service?.kind==="BILL")commit({...current,service:null});
+        throw new APIError("NO_ORDERS");
+      }
       const pending=current.service?.kind===kind?current.service:{id:crypto.randomUUID(),kind};
       commit({...current,service:pending},true);
       try {
@@ -152,6 +156,7 @@ export default function MenuView({slug,token,initialMenu}:{slug:string;token:str
     });
   }
   const waiter=visit?.services.find(x=>x.kind==="WAITER"),bill=visit?.services.find(x=>x.kind==="BILL");
+  const hasOwnOrder=Boolean(visit?.orders.some(o=>o.status!=="CANCELLED"));
   const filtered=menu.categories.filter(c=>category==="all"||c.id===category).map(c=>({...c,products:c.products.filter(p=>`${p.name} ${p.description||""}`.toLocaleLowerCase("az").includes(search.toLocaleLowerCase("az")))})).filter(c=>c.products.length);
 
   return <main className="min-h-screen bg-[#f6f5f1] pb-32 text-slate-900 selection:bg-emerald-100">
@@ -170,8 +175,9 @@ export default function MenuView({slug,token,initialMenu}:{slug:string;token:str
         {visible&&<>
           <div className="grid grid-cols-2 gap-3">
             <button onClick={()=>void service("WAITER")} disabled={!!busy||visit?.session.status==="CLOSED"||!!waiter||!!shownDraft.service&&shownDraft.service.kind!=="WAITER"} className="flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-stone-200 bg-white px-3 py-3 text-sm font-medium disabled:opacity-60"><Bell size={18} className="shrink-0 text-emerald-700"/>{waiter?(waiter.status==="SEEN"?"Ofisiant gəlir":"Çağırış göndərildi"):shownDraft.service?.kind==="WAITER"?"Çağırışı yoxla":"Ofisiant çağır"}</button>
-            <button onClick={()=>setModal("bill")} disabled={!!busy||visit?.session.status==="CLOSED"||!!bill||!!shownDraft.pending||!!shownDraft.service&&shownDraft.service.kind!=="BILL"} className="flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-stone-200 bg-white px-3 py-3 text-sm font-medium disabled:opacity-60"><ReceiptText size={18} className="shrink-0 text-emerald-700"/>{bill?(bill.status==="SEEN"?"Hesab hazırlanır":"Hesab istənildi"):"Hesab istə"}</button>
+            <button onClick={()=>setModal("bill")} disabled={!hasOwnOrder||!!busy||visit?.session.status==="CLOSED"||!!bill||!!shownDraft.pending||!!shownDraft.service&&shownDraft.service.kind!=="BILL"} aria-describedby={!hasOwnOrder&&!bill&&(!visit||visit.session.status==="OPEN")?"bill-eligibility":undefined} className="flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-stone-200 bg-white px-3 py-3 text-sm font-medium disabled:opacity-60"><ReceiptText size={18} className="shrink-0 text-emerald-700"/>{bill?(bill.status==="SEEN"?"Hesab hazırlanır":"Hesab istənildi"):"Hesab istə"}</button>
           </div>
+          {!hasOwnOrder&&!bill&&(!visit||visit.session.status==="OPEN")&&<p id="bill-eligibility" className="-mt-3 text-xs leading-5 text-slate-500">Hesab istəmək üçün əvvəl bu telefondan sifariş ver.</p>}
           {visit?.session.status==="BILL_REQUESTED"&&<p className="rounded-2xl bg-amber-50 p-4 text-sm leading-6 text-amber-900">Masa üçün hesab istənilib. Əlavə sifariş vermək üçün ofisianta müraciət et.</p>}
           {(visit?.session.status==="CLOSED"||expired)&&<section className="rounded-2xl border border-stone-200 bg-white p-4"><p className="text-sm text-slate-600">{expired?"Ziyarətin müddəti bitib.":"Hesab bağlanıb. Təşəkkür edirik!"}</p><button disabled={!!busy||!!shownDraft.pending} onClick={locate} className="mt-3 rounded-xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">Yeni ziyarətə başla</button></section>}
           {!menu.accepting_orders&&<p className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-800">Filial hazırda sifariş qəbul etmir.</p>}
@@ -195,7 +201,7 @@ export default function MenuView({slug,token,initialMenu}:{slug:string;token:str
     {visible&&count>0&&<div className="fixed inset-x-0 bottom-0 z-20 border-t border-stone-200 bg-white/95 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur"><button onClick={()=>setModal("cart")} className="mx-auto flex min-h-14 w-full max-w-[704px] items-center justify-between gap-3 rounded-2xl bg-emerald-800 px-5 py-3 text-white shadow-lg shadow-emerald-900/10"><span className="flex min-w-0 flex-1 items-center gap-3 text-sm font-semibold"><ShoppingBag size={20}/><span className="rounded-lg bg-white/15 px-2 py-1">{count}</span><span className="truncate">{shownDraft.pending?"Göndərilməni yoxla":"Səbətə bax"}</span></span><span className="flex shrink-0 items-center gap-2 text-sm font-semibold">{money(total,menu.currency)}<ChevronRight size={16}/></span></button></div>}
     <dialog ref={dialogRef} onCancel={()=>setModal(null)} onClose={()=>setModal(null)} aria-labelledby="qr-dialog-title" className="fixed inset-x-0 bottom-0 top-auto m-0 max-h-[90dvh] w-full max-w-none overflow-y-auto rounded-t-3xl bg-white p-5 text-slate-900 shadow-xl backdrop:bg-slate-950/40 sm:inset-0 sm:m-auto sm:max-h-[85dvh] sm:max-w-lg sm:rounded-3xl sm:p-6">
       <div className="mb-5 flex items-center justify-between"><h2 id="qr-dialog-title" className="text-xl font-semibold">{modal==="bill"?"Masa üçün hesab istə":"Səbətim"}</h2><button onClick={()=>setModal(null)} aria-label="Pəncərəni bağla" className="flex h-11 w-11 items-center justify-center rounded-full bg-stone-100"><X size={20}/></button></div>
-      {modal==="bill"?<><p className="text-sm leading-6 text-slate-600">Masanın bütün sifarişləri üçün hesab istəniləcək. Əlavə sifariş qəbulu dayanacaq. Ofisiant hesabı gətirəcək.</p><button disabled={!!busy} onClick={()=>void service("BILL")} className="mt-6 min-h-12 w-full rounded-2xl bg-emerald-800 p-4 text-sm font-semibold text-white disabled:opacity-50">{busy||"Hesabı istə"}</button></>:<>
+      {modal==="bill"?<><p className="text-sm leading-6 text-slate-600">{hasOwnOrder?"Masanın bütün sifarişləri üçün hesab istəniləcək. Əlavə sifariş qəbulu dayanacaq. Ofisiant hesabı gətirəcək.":orderError("NO_ORDERS")}</p><button disabled={!!busy||!hasOwnOrder||!!bill||visit?.session.status==="CLOSED"} onClick={()=>void service("BILL")} className="mt-6 min-h-12 w-full rounded-2xl bg-emerald-800 p-4 text-sm font-semibold text-white disabled:opacity-50">{busy||"Hesabı istə"}</button></>:<>
         {lines.map(line=><div key={line.id} className="flex items-center justify-between gap-3 border-b border-stone-100 py-3"><div className="min-w-0"><h3 className="break-words text-sm font-medium">{line.name}</h3><p className="mt-1 text-xs text-slate-500">{money(line.price,menu.currency)}</p></div><div className="flex shrink-0 items-center gap-2"><button aria-label={`${line.name} sayını azalt`} disabled={!!busy||locked} onClick={()=>changeQuantity(line,-1)} className="flex h-11 w-10 items-center justify-center rounded-xl bg-stone-100 disabled:opacity-40"><Minus size={16}/></button><span className="min-w-4 text-center text-sm">{line.quantity}</span><button aria-label={`${line.name} sayını artır`} disabled={!!busy||locked||line.quantity>=20} onClick={()=>changeQuantity(line,1)} className="flex h-11 w-10 items-center justify-center rounded-xl bg-stone-100 disabled:opacity-40"><Plus size={16}/></button></div></div>)}
         {!lines.length&&<p className="text-sm text-slate-500">Səbətin boşdur.</p>}
         <label className="mt-5 block text-sm font-medium">Sifariş üçün qeyd<textarea value={hydrated?draft.note:""} disabled={!!busy||locked} maxLength={500} onChange={e=>commit({...draftRef.current,note:e.target.value})} placeholder="Məsələn: soğansız olsun" rows={2} className="mt-2 w-full resize-none rounded-2xl border border-stone-200 p-3 text-base font-normal outline-none focus:border-emerald-600 disabled:opacity-60"/></label>

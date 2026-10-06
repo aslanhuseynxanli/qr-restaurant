@@ -20,7 +20,7 @@ export function orderError(code?:string) {
     PRODUCT_UNAVAILABLE:"Səbətdəki məhsullardan biri artıq mövcud deyil. Menyu yeniləndi; səbəti yoxla.",
     TOO_MANY_REQUESTS:"Çox tez-tez sorğu göndərildi. Bir az gözlə və yenidən cəhd et.",
     REQUEST_CONFLICT:"Bu sorğu artıq fərqli məlumatla göndərilib. Sifarişlərini yoxla.",
-    NO_ORDERS:"Bu masada hesab istəmək üçün hələ sifariş yoxdur.",
+    NO_ORDERS:"Hesab istəmək üçün bu ziyarətdə öz telefonundan ləğv edilməmiş sifarişin olmalıdır.",
     STALE_VERSION:"Başqa işçi bu məlumatı dəyişib. Panel yeniləndi; cari statusu yoxla.",
     UNFINISHED_ORDERS:"Əvvəl bütün sifarişləri servis et və ya ləğv et.",
     FORBIDDEN:"Bu filialda əməliyyat üçün icazən yoxdur.",
