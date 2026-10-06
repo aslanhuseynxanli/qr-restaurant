@@ -8,7 +8,7 @@ export const paymentLabels: Record<PaymentMethod,string> = {CASH:"Nağd",CARD:"K
 export function isPaymentMethod(value:unknown): value is PaymentMethod { return value==="CASH"||value==="CARD"||value==="MIXED"; }
 export type QRService = {id:string;kind:"WAITER"|"BILL";payment_method?:PaymentMethod|null;status:"NEW"|"SEEN"|"DONE";version?:number;created_at:string;updated_at?:string};
 export type VisitView = {session:{id:string;status:"OPEN"|"BILL_REQUESTED"|"CLOSED";table_name:string};orders:QROrder[];services:QRService[]};
-export type StaffSession = VisitView["session"] & {version:number;table_number:number;opened_at:string;total:number;currency:string;orders:QROrder[];services:QRService[]};
+export type StaffSession = VisitView["session"] & {version:number;table_number:number;opened_at:string;payment_total?:string;total:number;currency:string;orders:QROrder[];services:QRService[]};
 export type StaffBoard = {sessions:StaffSession[];sound_enabled?:boolean};
 export type CartLine = {id:string;name:string;quantity:number;price:number};
 export function money(value:number,currency="AZN") { return `${Number(value).toFixed(2)} ${currency}`; }
@@ -23,6 +23,7 @@ export function orderError(code?:string) {
     PRODUCT_UNAVAILABLE:"Səbətdəki məhsullardan biri artıq mövcud deyil. Menyu yeniləndi; səbəti yoxla.",
     TOO_MANY_REQUESTS:"Çox tez-tez sorğu göndərildi. Bir az gözlə və yenidən cəhd et.",
     REQUEST_CONFLICT:"Bu sorğu artıq fərqli məlumatla göndərilib. Sifarişlərini yoxla.",
+    PAYMENT_REQUIRED:"Ödənişi qeyd etmək üçün səhifəni yenilə və yeni ödəniş pəncərəsini aç.",
     INVALID_PAYMENT_METHOD:"Hesab üçün ödəniş üsulunu seç.",
     NO_ORDERS:"Hesab istəmək üçün bu ziyarətdə öz telefonundan ləğv edilməmiş sifarişin olmalıdır.",
     STALE_VERSION:"Başqa işçi bu məlumatı dəyişib. Panel yeniləndi; cari statusu yoxla.",

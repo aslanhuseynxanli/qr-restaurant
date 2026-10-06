@@ -7,7 +7,7 @@ export default function MenuNavigation({restaurantId}:{restaurantId:string}) {
   const pathname=usePathname(),params=useParams(),mobile=useRef<HTMLDetailsElement>(null);
   const branchId=typeof params.branchId==="string"&&uuidPattern.test(params.branchId)?params.branchId:null;
   const root=`/admin/restaurants/${restaurantId}`;
-  const links=[{href:root,label:"Ümumi baxış"},{href:`${root}/branches`,label:"Filiallar"},{href:`${root}/menu`,label:"Restoran menyusu"},{href:`${root}/staff`,label:"İşçilər"},{href:`${root}/activity`,label:"Tarixçə"}];
+  const links=[{href:root,label:"Ümumi baxış"},{href:`${root}/branches`,label:"Filiallar"},{href:`${root}/menu`,label:"Restoran menyusu"},{href:`${root}/staff`,label:"İşçilər"},{href:`${root}/accounts`,label:"Hesab tarixçəsi"},{href:`${root}/activity`,label:"Fəaliyyət tarixçəsi"}];
   if(branchId)links.push({href:`${root}/branches/${branchId}`,label:"Masalar və QR"},{href:`${root}/branches/${branchId}/menu`,label:"Filial menyusu"},{href:`${root}/branches/${branchId}/orders`,label:"Sifarişlər və çağırışlar"});
   const current=links.find(link=>link.href===pathname)?.label||"Restoran bölmələri";
   const items=links.map(link=><Link key={link.href} href={link.href} aria-current={pathname===link.href?"page":undefined} onClick={()=>{if(mobile.current)mobile.current.open=false;}} className={`flex min-h-11 items-center rounded-xl px-3 py-3 text-sm font-medium ${pathname===link.href?"bg-emerald-800 text-white":"text-emerald-800 hover:bg-emerald-50"}`}>{link.label}</Link>);

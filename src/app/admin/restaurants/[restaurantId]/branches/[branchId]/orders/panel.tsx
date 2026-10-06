@@ -7,12 +7,14 @@ import { createClient } from "@/lib/supabase/client";
 import { clockTime,money,nextStatus,orderError,orderLabels,paymentLabels,type QROrder,type OrderStatus,type QRService,type StaffBoard,type StaffSession } from "@/lib/qr-orders";
 
 import OrderSound from "./order-sound";
+import PaymentDialog from "./payment-dialog";
+import {exactMoney,paymentErrors,type SettlementInput,type SettlementResult,type SettlementFeedback} from "@/lib/account-payments";
 
 const actionLabels:Partial<Record<OrderStatus,string>>={NEW:"Qəbul et",ACCEPTED:"Hazırlamağa başla",PREPARING:"Hazırdır",READY:"Servis edildi"};
 export default function OrdersPanel({restaurantId,branchId,initialBoard}:{restaurantId:string;branchId:string;initialBoard:StaffBoard}) {
   const [board,setBoard]=useState(initialBoard),[busy,setBusy]=useState(""),[message,setMessage]=useState(""),[stale,setStale]=useState(false),[filter,setFilter]=useState("new"),[search,setSearch]=useState("");
   const actionRef=useRef(false),revision=useRef(0);
-  const [denied,setDenied]=useState(false);
+  const [denied,setDenied]=useState(false),[paymentSession,setPaymentSession]=useState<StaffSession|null>(null),[notice,setNotice]=useState("");
   async function reload() {
     if(actionRef.current)return;
     const generation=revision.current;
@@ -32,7 +34,7 @@ export default function OrdersPanel({restaurantId,branchId,initialBoard}:{restau
     document.addEventListener("visibilitychange",visible);return()=>{stopped=true;clearTimeout(timer);document.removeEventListener("visibilitychange",visible);};
   },[restaurantId,branchId]);
   async function action(kind:string,id:string,version:number,status:string|null=null) {
-    if(actionRef.current)return;actionRef.current=true;revision.current++;setBusy(id);setMessage("");
+    if(actionRef.current)return;actionRef.current=true;revision.current++;setBusy(id);setMessage("");setNotice("");
     try {
       const {data,error}=await createClient().rpc("qr_staff_action",{p_restaurant_id:restaurantId,p_branch_id:branchId,p_kind:kind,p_id:id,p_version:version,p_status:status});
       if(error){if(error.code==="42501"){setBoard({sessions:[]});setDenied(true);}const code=error.code==="42501"?"FORBIDDEN":error.message;throw new Error(orderError(code));}
@@ -40,8 +42,24 @@ export default function OrdersPanel({restaurantId,branchId,initialBoard}:{restau
     }catch(error){setMessage(error instanceof Error?error.message:orderError());}
     finally{actionRef.current=false;setBusy("");await reload().catch(()=>setStale(true));}
   }
-  function close(session:StaffSession) {
-    if(window.confirm(`${session.table_name}: ${money(session.total,session.currency)}${session.services.find(c=>c.kind==="BILL")?.payment_method?` (${paymentLabels[session.services.find(c=>c.kind==="BILL")!.payment_method!]})`:""} ödənişi alındı? Təsdiqləsən masa bağlanacaq.`))void action("CLOSE",session.id,session.version);
+  async function settle(input:SettlementInput):Promise<SettlementFeedback> {
+    if(actionRef.current)return {ok:false,error:"Başqa əməliyyat tamamlanır. Bir az sonra yenidən yoxla.",retry:true};
+    actionRef.current=true;revision.current++;setBusy(input.session_id);setNotice("");setMessage("");
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);
+    try {
+      const {data,error}=await createClient().rpc("qr_settle_account",{p_restaurant_id:restaurantId,p_branch_id:branchId,p_session_id:input.session_id,
+        p_version:input.version,p_request_id:input.request_id,p_payment_method:input.method,p_cash:input.cash,p_card:input.card,p_expected_total:input.total,p_currency:input.currency}).abortSignal(controller.signal);
+      if(error){
+        if(error.code==="42501"){setBoard({sessions:[]});setDenied(true);return {ok:false,error:paymentErrors.FORBIDDEN};}
+        if(Object.hasOwn(paymentErrors,error.message))return {ok:false,error:paymentErrors[error.message]};
+        return {ok:false,error:"Cavab alınmadı. Eyni ödənişi yenidən yoxla; təkrar ödəniş qeydi yaranmayacaq.",retry:true};
+      }
+      if(!data)return {ok:false,error:"Cavab alınmadı. Eyni ödənişi yenidən yoxla.",retry:true};
+      const result=data as SettlementResult;setBoard(result.board);setStale(false);
+      setNotice(`${paymentSession?.table_name||"Masa"} · Hesab #${result.payment.number} bağlandı · ${exactMoney(result.payment.total,result.payment.currency)}. Ödəniş qeydə alındı.`);
+      return {ok:true};
+    }catch{return {ok:false,error:"Bağlantı alınmadı. Eyni ödənişi yenidən yoxla; təkrar qeyd yaranmayacaq.",retry:true};}
+    finally{clearTimeout(timer);actionRef.current=false;setBusy("");void reload().catch(()=>setStale(true));}
   }
   const allOrders=board.sessions.flatMap(session=>session.orders.map(order=>({session,order})));
   const newOrders=allOrders.filter(x=>x.order.status==="NEW").length;
@@ -72,6 +90,8 @@ export default function OrdersPanel({restaurantId,branchId,initialBoard}:{restau
   const tabs=[{id:"new",name:"Yeni sifarişlər",count:newOrders},{id:"work",name:"Hazırlananlar",count:workingOrders},{id:"all",name:"Masalar",count:board.sessions.length},{id:"calls",name:"Çağırışlar",count:newCalls}];
   return <>
     <OrderSound board={board}/>
+    {paymentSession&&<PaymentDialog session={paymentSession} onClose={()=>setPaymentSession(null)} onSettle={settle}/>}
+    {notice&&<p role="status" className="rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-900">{notice}</p>}
     <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
       <nav aria-label="Sifariş filtri" className="grid grid-cols-2 gap-2 sm:grid-cols-4">{tabs.map(x=><button key={x.id} onClick={()=>setFilter(x.id)} aria-pressed={filter===x.id} className={`flex min-h-12 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold ${filter===x.id?"bg-emerald-800 text-white":"bg-slate-50 text-slate-700"}`}>{x.name}<span className={`rounded-md px-2 py-0.5 text-xs ${filter===x.id?"bg-white/15":"bg-slate-200/70"}`}>{x.count}</span></button>)}</nav>
       <div className="flex flex-wrap items-center justify-between gap-3"><input aria-label="Masa və ya sifariş axtar" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Masa adı və ya sifariş nömrəsi" className="min-h-11 w-full rounded-xl border border-slate-200 px-3 text-base outline-none focus:border-emerald-600 sm:max-w-sm"/><div className="flex items-center gap-3"><span className={`text-xs ${stale?"text-red-700":"text-slate-500"}`}>{stale?"Bağlantı kəsilib — məlumat köhnə ola bilər":"4 saniyədən bir yenilənir"}</span><button aria-label="Paneli yenilə" onClick={()=>void reload().catch(()=>setStale(true))} disabled={!!busy} className="rounded-xl border border-slate-200 bg-white p-3"><RefreshCw size={16}/></button></div></div>
@@ -85,8 +105,8 @@ export default function OrdersPanel({restaurantId,branchId,initialBoard}:{restau
           {filter==="all"&&<>{session.orders.filter(o=>!["SERVED","CANCELLED"].includes(o.status)).map(o=>orderCard(o,session))}
           {session.orders.some(o=>["SERVED","CANCELLED"].includes(o.status))&&<details className="rounded-2xl bg-slate-50 p-4"><summary className="cursor-pointer text-sm font-medium">Tamamlanan sifarişlər ({session.orders.filter(o=>["SERVED","CANCELLED"].includes(o.status)).length})</summary><div className="mt-4 space-y-3">{session.orders.filter(o=>["SERVED","CANCELLED"].includes(o.status)).map(o=>orderCard(o,session))}</div></details>}
           {!session.orders.length&&<p className="py-3 text-center text-sm text-slate-400">Müştəri menyuya baxır. Hələ sifariş yoxdur.</p>}</>}
-          {session.status==="OPEN"&&session.orders.every(x=>x.status==="CANCELLED")&&<button disabled={!!busy} onClick={()=>{if(window.confirm(`${session.table_name} boşaldı? Sifarişsiz masa hesabı bağlanacaq.`))void action("CLEAR",session.id,session.version);}} className="min-h-11 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm disabled:opacity-40">Sifarişsiz masanı boşalt</button>}
-          {session.status==="BILL_REQUESTED"&&<div className="space-y-2 border-t border-slate-100 pt-4"><button disabled={!!busy||session.orders.some(x=>!["SERVED","CANCELLED"].includes(x.status))} onClick={()=>close(session)} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white disabled:opacity-40"><Check size={16}/>Ödəniş alındı · Masanı bağla</button>{session.orders.some(x=>!["SERVED","CANCELLED"].includes(x.status))&&<p className="text-xs leading-5 text-slate-500">Masanı bağlamazdan əvvəl bütün sifarişləri servis et və ya ləğv et.</p>}<button disabled={!!busy} onClick={()=>void action("REOPEN",session.id,session.version)} className="min-h-11 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm">Əlavə sifariş üçün yenidən aç</button></div>}
+          {session.orders.every(x=>x.status==="CANCELLED")&&<button disabled={!!busy} onClick={()=>{if(window.confirm(`${session.table_name} boşaldı? Sifarişsiz masa hesabı bağlanacaq.`))void action("CLEAR",session.id,session.version);}} className="min-h-11 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm disabled:opacity-40">Sifarişsiz masanı boşalt</button>}
+          {session.status==="BILL_REQUESTED"&&<div className="space-y-2 border-t border-slate-100 pt-4"><button disabled={!!busy||!session.orders.some(x=>x.status==="SERVED")||session.orders.some(x=>!["SERVED","CANCELLED"].includes(x.status))} onClick={()=>setPaymentSession(session)} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white disabled:opacity-40"><Check size={16}/>Ödəniş alındı · Masanı bağla</button>{session.orders.some(x=>!["SERVED","CANCELLED"].includes(x.status))&&<p className="text-xs leading-5 text-slate-500">Masanı bağlamazdan əvvəl bütün sifarişləri servis et və ya ləğv et.</p>}<button disabled={!!busy} onClick={()=>void action("REOPEN",session.id,session.version)} className="min-h-11 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm">Əlavə sifariş üçün yenidən aç</button></div>}
         </div>
       </section>)}</div>
     </>}

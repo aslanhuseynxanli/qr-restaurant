@@ -78,5 +78,7 @@ export function ownerEventDetails(event:OwnerEvent) {
   if(event.action==="menu.imported")for(const [key,label] of [["created_products","əlavə edilən məhsul"],["updated_products","yenilənən məhsul"],["created_categories","yeni kateqoriya"],["skipped_products","keçilən məhsul"]])if(typeof d[key]==="number")result.push(`${d[key]} ${label}`);
   const method:Record<string,string>={CASH:"Nağd",CARD:"Kart",MIXED:"Kart + nağd"};
   if(typeof d.payment_method==="string"&&method[d.payment_method])result.push(`Ödəniş: ${method[d.payment_method]}`);
+  if(d.receipt_number)result.push(`Hesab #${d.receipt_number}`);
+  if(d.cash_amount!==undefined&&d.card_amount!==undefined)result.push(`Nağd: ${ownerMoney(d.cash_amount,event.currency||"")} · Kart: ${ownerMoney(d.card_amount,event.currency||"")}`);
   return result;
 }
