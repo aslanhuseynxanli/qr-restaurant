@@ -61,7 +61,7 @@ export default function LocationPicker({ value, radius, onChange, onAddressSelec
     void import("leaflet").then((L) => {
       if (cancelled || !container.current) return;
       const selected = latest.current.value;
-      const map = L.map(container.current, { worldCopyJump: true }).setView(
+      const map = L.map(container.current, { worldCopyJump: true, zoomAnimation: false }).setView(
         selected ? [selected.latitude, selected.longitude] : [40.4093, 49.8671], selected ? 17 : 12,
       );
       instance.current = { map, L, marker: null, circle: null };
@@ -72,7 +72,9 @@ export default function LocationPicker({ value, radius, onChange, onAddressSelec
         latest.current.onChange({ latitude: event.latlng.lat, longitude: event.latlng.wrap().lng });
       });
       draw();
-      observer = new ResizeObserver(() => map.invalidateSize());
+      observer = new ResizeObserver(() => {
+        if (!cancelled && instance.current?.map === map) map.invalidateSize({ animate: false });
+      });
       observer.observe(container.current);
     }).catch(() => { if (!cancelled) setMapError("Xəritə yüklənmədi. Səhifəni yenilə və ya cari mövqedən istifadə et."); });
     return () => {
@@ -103,7 +105,7 @@ export default function LocationPicker({ value, radius, onChange, onAddressSelec
       state.marker.setLatLng(point);
       state.circle?.setLatLng(point).setRadius(radius);
     }
-    state.map.setView(point, Math.max(state.map.getZoom(), 16));
+    state.map.setView(point, Math.max(state.map.getZoom(), 16), { animate: false });
   }, [value, radius]);
 
   async function search() {

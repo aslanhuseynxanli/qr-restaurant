@@ -105,5 +105,6 @@ export async function createBranchAction(
 
   revalidatePath("/admin");
   revalidatePath(`/admin/restaurants/${restaurantId}`);
-  redirect(`/admin/restaurants/${restaurantId}`);
+  revalidatePath(`/admin/restaurants/${restaurantId}/branches`);
+  redirect(`/admin/restaurants/${restaurantId}/branches`);
 }
