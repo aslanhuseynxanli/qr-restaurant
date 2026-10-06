@@ -1,4 +1,5 @@
 import { NextRequest,NextResponse } from "next/server";
+import { isPaymentMethod } from "@/lib/qr-orders";
 import { gatewayClient,gatewayRateKey,parseVisitCookie,publicGatewayError,qrUUID,visitCookieName } from "@/lib/qr-gateway";
 
 export const runtime="nodejs";
@@ -93,7 +94,11 @@ export async function POST(request:NextRequest,ctx:Context) {
       return response({view:data.view,orderId:data.order_id});
     }
     if(body.kind!=="WAITER"&&body.kind!=="BILL")throw new Error("INVALID_REQUEST");
-    const {data,error}=await client.rpc("qr_request_service",{...auth,p_kind:body.kind});
+    if(body.kind==="BILL"&&body.paymentMethod!==undefined&&!isPaymentMethod(body.paymentMethod))throw new Error("INVALID_PAYMENT_METHOD");
+    // Old open browser tabs can finish their existing requests without a selected method.
+    const {data,error}=body.kind==="BILL"&&isPaymentMethod(body.paymentMethod)
+      ? await client.rpc("qr_request_bill",{...auth,p_payment_method:body.paymentMethod})
+      : await client.rpc("qr_request_service",{...auth,p_kind:body.kind});
     if(error)throw new Error(publicGatewayError(error));
     return response({view:data});
   }catch(error){return failure(error);}

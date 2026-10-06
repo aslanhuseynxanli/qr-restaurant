@@ -26,6 +26,6 @@ export function parseVisitCookie(value?:string) {
   return rest.length===0&&qrUUID.test(id||"")&&/^[0-9a-f]{64}$/.test(secret||"") ? {id,secret}:null;
 }
 export function publicGatewayError(error:{code?:string;message?:string}) {
-  const allowed=["LOCATION_REQUIRED","ORDERS_PAUSED","TABLE_CLOSED","VISIT_EXPIRED","PRICE_CHANGED","CURRENCY_CHANGED","PRODUCT_UNAVAILABLE","TOO_MANY_REQUESTS","REQUEST_CONFLICT","NO_ORDERS","INVALID_QR","INVALID_ORDER","INVALID_REQUEST","SERVER_NOT_CONFIGURED"];
+  const allowed=["LOCATION_REQUIRED","ORDERS_PAUSED","TABLE_CLOSED","VISIT_EXPIRED","PRICE_CHANGED","CURRENCY_CHANGED","PRODUCT_UNAVAILABLE","TOO_MANY_REQUESTS","REQUEST_CONFLICT","NO_ORDERS","INVALID_QR","INVALID_ORDER","INVALID_REQUEST","INVALID_PAYMENT_METHOD","SERVER_NOT_CONFIGURED"];
   return allowed.includes(error.message||"")?error.message!:"REQUEST_FAILED";
 }
