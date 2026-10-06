@@ -32,6 +32,8 @@ export default async function BranchPage({ params }: { params: Promise<{ restaur
     <div className="mx-auto max-w-6xl space-y-6">
       <Link href={`/admin/restaurants/${restaurantId}`} className="text-sm text-emerald-700 hover:underline">← {restaurant.name}</Link>
       <header><h1 className="text-2xl font-semibold">{branch.name}</h1><p className="mt-1 text-sm text-slate-500">{branch.address || "Ünvan qeyd edilməyib"} · {branch.accepting_orders && branch.is_active ? "Sifariş qəbulu açıqdır" : "Sifariş qəbulu bağlıdır"}</p></header>
+      {/* qr-orders-link-v1 */}
+      <Link href={`/admin/restaurants/${restaurantId}/branches/${branchId}/orders`} className="inline-flex min-h-12 items-center rounded-xl bg-emerald-800 px-5 py-3 text-sm font-semibold text-white">Sifarişlər və çağırışlar</Link>
       <TableQRList tables={tables} slug={restaurant.slug} />
       {canManage && <div className="grid items-start gap-6 lg:grid-cols-2">
         {branch.is_active && <TableForm key={tables.length} restaurantId={restaurantId} branchId={branchId} suggestedNumber={suggestedNumber} />}
