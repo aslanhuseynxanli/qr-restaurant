@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BranchLocationForm, TableForm } from "./forms";
 import TableQRList from "./table-qr";
+import BulkTables from "./bulk-tables";
 
 export default async function BranchPage({ params }: { params: Promise<{ restaurantId: string; branchId: string }> }) {
   const { restaurantId, branchId } = await params;
@@ -34,7 +35,8 @@ export default async function BranchPage({ params }: { params: Promise<{ restaur
       <header><h1 className="text-2xl font-semibold">{branch.name}</h1><p className="mt-1 text-sm text-slate-500">{branch.address || "Ünvan qeyd edilməyib"} · {branch.accepting_orders && branch.is_active ? "Sifariş qəbulu açıqdır" : "Sifariş qəbulu bağlıdır"}</p></header>
       {/* qr-orders-link-v1 */}
       <div className="flex flex-wrap gap-2"><Link href={`/admin/restaurants/${restaurantId}/branches/${branchId}/orders`} className="inline-flex min-h-12 items-center rounded-xl bg-emerald-800 px-5 py-3 text-sm font-semibold text-white">Sifarişlər və çağırışlar</Link><Link prefetch={false} href={`/admin/restaurants/${restaurantId}/branches/${branchId}/kitchen`} className="inline-flex min-h-12 items-center rounded-xl border border-emerald-200 bg-white px-5 py-3 text-sm font-semibold text-emerald-800">Mətbəx ekranı</Link></div>
-      <TableQRList tables={tables} slug={restaurant.slug} />
+      {canManage&&branch.is_active&&<BulkTables restaurantId={restaurantId} branchId={branchId} suggestedNumber={suggestedNumber}/>}
+      <TableQRList tables={tables} slug={restaurant.slug} printHref={`/admin/restaurants/${restaurantId}/branches/${branchId}/print`}/>
       {canManage && <div className="grid items-start gap-6 lg:grid-cols-2">
         {branch.is_active && <TableForm key={tables.length} restaurantId={restaurantId} branchId={branchId} suggestedNumber={suggestedNumber} />}
         <BranchLocationForm key={`${branch.latitude}:${branch.longitude}:${branch.allowed_radius_meters}:${branch.address}`} restaurantId={restaurantId} branchId={branchId} latitude={Number(branch.latitude)} longitude={Number(branch.longitude)} address={branch.address} radius={branch.allowed_radius_meters} />

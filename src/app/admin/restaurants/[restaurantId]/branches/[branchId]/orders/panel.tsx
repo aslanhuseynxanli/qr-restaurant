@@ -8,11 +8,14 @@ import { clockTime,money,nextStatus,orderError,orderLabels,paymentLabels,type QR
 
 import OrderSound from "./order-sound";
 import PaymentDialog from "./payment-dialog";
+import ManualOrder from "./manual-order";
+import BillRequest from "./bill-request";
 import {exactMoney,paymentErrors,type SettlementInput,type SettlementResult,type SettlementFeedback} from "@/lib/account-payments";
 
 const actionLabels:Partial<Record<OrderStatus,string>>={NEW:"Qəbul et",ACCEPTED:"Hazırlamağa başla",PREPARING:"Hazırdır",READY:"Servis edildi"};
 export default function OrdersPanel({restaurantId,branchId,initialBoard}:{restaurantId:string;branchId:string;initialBoard:StaffBoard}) {
   const [board,setBoard]=useState(initialBoard),[busy,setBusy]=useState(""),[message,setMessage]=useState(""),[stale,setStale]=useState(false),[filter,setFilter]=useState(initialBoard.can_prepare===true?"new":"ready"),[search,setSearch]=useState("");
+  const [manual,setManual]=useState(false),[billSession,setBillSession]=useState<StaffSession|null>(null);
   const actionRef=useRef(false),revision=useRef(0);
   const [denied,setDenied]=useState(false),[paymentSession,setPaymentSession]=useState<StaffSession|null>(null),[notice,setNotice]=useState("");
   async function reload() {
@@ -91,6 +94,9 @@ export default function OrdersPanel({restaurantId,branchId,initialBoard}:{restau
   const tabs=board.can_prepare===true?[{id:"new",name:"Yeni sifarişlər",count:newOrders},{id:"work",name:"Hazırlananlar",count:workingOrders},{id:"all",name:"Masalar",count:board.sessions.length},{id:"calls",name:"Çağırışlar",count:newCalls}]:[{id:"ready",name:"Hazır sifarişlər",count:readyOrders},{id:"calls",name:"Çağırışlar",count:newCalls},{id:"all",name:"Masalar",count:board.sessions.length}];
   return <>
     <OrderSound board={board}/>
+    <button disabled={!!busy} onClick={()=>setManual(true)} className="min-h-12 w-full rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white disabled:opacity-40 sm:w-auto">Masa üçün sifariş əlavə et</button>
+    {manual&&<ManualOrder restaurantId={restaurantId} branchId={branchId} onClose={()=>setManual(false)} onSuccess={receipt=>{revision.current++;setManual(false);setNotice(`${receipt.table_name} · Sifariş #${receipt.number} mətbəxə göndərildi.`);void reload().catch(()=>setStale(true));}}/>}
+    {billSession&&<BillRequest restaurantId={restaurantId} branchId={branchId} session={billSession} onClose={()=>{setBillSession(null);void reload().catch(()=>setStale(true));}} onSuccess={data=>{revision.current++;setBoard(data);setBillSession(null);setStale(false);}}/>}
     {paymentSession&&<PaymentDialog session={paymentSession} onClose={()=>setPaymentSession(null)} onSettle={settle}/>}
     {notice&&<p role="status" className="rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-900">{notice}</p>}
     <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
@@ -107,6 +113,7 @@ export default function OrdersPanel({restaurantId,branchId,initialBoard}:{restau
           {session.orders.some(o=>["SERVED","CANCELLED"].includes(o.status))&&<details className="rounded-2xl bg-slate-50 p-4"><summary className="cursor-pointer text-sm font-medium">Tamamlanan sifarişlər ({session.orders.filter(o=>["SERVED","CANCELLED"].includes(o.status)).length})</summary><div className="mt-4 space-y-3">{session.orders.filter(o=>["SERVED","CANCELLED"].includes(o.status)).map(o=>orderCard(o,session))}</div></details>}
           {!session.orders.length&&<p className="py-3 text-center text-sm text-slate-400">Müştəri menyuya baxır. Hələ sifariş yoxdur.</p>}</>}
           {session.orders.every(x=>x.status==="CANCELLED")&&<button disabled={!!busy} onClick={()=>{if(window.confirm(`${session.table_name} boşaldı? Sifarişsiz masa hesabı bağlanacaq.`))void action("CLEAR",session.id,session.version);}} className="min-h-11 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm disabled:opacity-40">Sifarişsiz masanı boşalt</button>}
+          {filter==="all"&&session.status==="OPEN"&&session.orders.some(x=>x.status!=="CANCELLED")&&<button disabled={!!busy} onClick={()=>setBillSession(session)} className="min-h-12 w-full rounded-xl border border-emerald-200 px-4 py-3 font-semibold text-emerald-800">Hesabı hazırla</button>}
           {session.status==="BILL_REQUESTED"&&<div className="space-y-2 border-t border-slate-100 pt-4"><button disabled={!!busy||!session.orders.some(x=>x.status==="SERVED")||session.orders.some(x=>!["SERVED","CANCELLED"].includes(x.status))} onClick={()=>setPaymentSession(session)} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white disabled:opacity-40"><Check size={16}/>Ödəniş alındı · Masanı bağla</button>{session.orders.some(x=>!["SERVED","CANCELLED"].includes(x.status))&&<p className="text-xs leading-5 text-slate-500">Masanı bağlamazdan əvvəl bütün sifarişləri servis et və ya ləğv et.</p>}<button disabled={!!busy} onClick={()=>void action("REOPEN",session.id,session.version)} className="min-h-11 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm">Əlavə sifariş üçün yenidən aç</button></div>}
         </div>
       </section>)}</div>

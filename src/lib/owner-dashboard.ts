@@ -49,7 +49,7 @@ export function ownerMoney(value:unknown,currency="AZN") {
 }
 const statuses:Record<string,string>={NEW:"Yeni",ACCEPTED:"Qəbul edildi",PREPARING:"Hazırlanır",READY:"Hazırdır",SERVED:"Servis edildi",COMPLETED:"Tamamlandı",CANCELLED:"Ləğv edildi",SEEN:"Görüldü",DONE:"Tamamlandı"};
 export function ownerEventTitle(event:OwnerEvent) {
-  const titles:Record<string,string>={"restaurant.created":"Restoran yaradıldı","branch.created":"Filial yaradıldı","branch.location_updated":"Filialın məkanı və radiusu yeniləndi","table.created":"Masa və QR yaradıldı","category.created":"Kateqoriya əlavə edildi","category.updated":"Kateqoriya yeniləndi","product.created":"Məhsul əlavə edildi","product.updated":"Məhsul yeniləndi","branch_product.updated":"Filialın məhsul ayarları yeniləndi","menu.imported":"Menyu import edildi","staff.created":"İşçi hesabı yaradıldı","staff.updated":"İşçinin girişi və filialı yeniləndi","owner.created":"Sahib hesabı yaradıldı","owner.updated":"Sahib hesabının girişi yeniləndi","qr.order_created":"Sifariş verildi","order.created":"Sifariş verildi","qr.bill_payment_selected":"Ödəniş üsulu seçildi"};
+  const titles:Record<string,string>={"platform.restaurant_updated":"Restoranın platforma statusu dəyişdi","table.bulk_created":"Masalar və QR-lər toplu yaradıldı","qr.manual_order_created":"Sistemə masa sifarişi əlavə edildi","qr.staff_bill_requested":"İşçi hesab hazırladı","restaurant.created":"Restoran yaradıldı","branch.created":"Filial yaradıldı","branch.location_updated":"Filialın məkanı və radiusu yeniləndi","table.created":"Masa və QR yaradıldı","category.created":"Kateqoriya əlavə edildi","category.updated":"Kateqoriya yeniləndi","product.created":"Məhsul əlavə edildi","product.updated":"Məhsul yeniləndi","branch_product.updated":"Filialın məhsul ayarları yeniləndi","menu.imported":"Menyu import edildi","staff.created":"İşçi hesabı yaradıldı","staff.updated":"İşçinin girişi və filialı yeniləndi","owner.created":"Sahib hesabı yaradıldı","owner.updated":"Sahib hesabının girişi yeniləndi","qr.order_created":"Sifariş verildi","order.created":"Sifariş verildi","qr.bill_payment_selected":"Ödəniş üsulu seçildi"};
   if(event.action==="qr.service_requested")return event.details.kind==="BILL"?"Hesab istənildi":"Ofisiant çağırıldı";
   if(event.action==="qr.staff_action"){
     if(event.entity_type==="qr_close")return "Ödəniş təsdiqləndi və masa bağlandı";
@@ -80,6 +80,7 @@ export function ownerEventDetails(event:OwnerEvent) {
   if(event.action==="menu.imported")for(const [key,label] of [["created_products","əlavə edilən məhsul"],["updated_products","yenilənən məhsul"],["created_categories","yeni kateqoriya"],["skipped_products","keçilən məhsul"]])if(typeof d[key]==="number")result.push(`${d[key]} ${label}`);
   const method:Record<string,string>={CASH:"Nağd",CARD:"Kart",MIXED:"Kart + nağd"};
   if(typeof d.payment_method==="string"&&method[d.payment_method])result.push(`Ödəniş: ${method[d.payment_method]}`);
+  if(typeof d.count==="number")result.push(`${d.count} masa`);
   if(d.receipt_number)result.push(`Hesab #${d.receipt_number}`);
   if(d.cash_amount!==undefined&&d.card_amount!==undefined)result.push(`Nağd: ${ownerMoney(d.cash_amount,event.currency||"")} · Kart: ${ownerMoney(d.card_amount,event.currency||"")}`);
   return result;

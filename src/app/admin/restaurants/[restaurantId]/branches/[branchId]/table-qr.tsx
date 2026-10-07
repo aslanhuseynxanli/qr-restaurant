@@ -46,14 +46,14 @@ function QRCard({ table, slug, origin }: { table: Table; slug: string; origin: s
   </article>;
 }
 
-export default function TableQRList({ tables, slug }: { tables: Table[]; slug: string }) {
+export default function TableQRList({ tables, slug,printHref }: { tables: Table[]; slug: string;printHref?:string }) {
   const currentOrigin = useSyncExternalStore(subscribe, getOrigin, serverOrigin);
   const [customOrigin, setCustomOrigin] = useState(process.env.NEXT_PUBLIC_SITE_URL || "");
   const candidate = customOrigin.trim() || currentOrigin;
   const origin = publicOrigin(candidate);
   return <section className="space-y-4">
     <div className="space-y-2 rounded-2xl border border-slate-200 bg-white p-5">
-      <h2 className="text-lg font-semibold">Masalar və QR kodlar</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-semibold">Masalar və QR kodlar</h2>{printHref&&origin&&tables.some(t=>t.is_active)&&<Link href={`${printHref}?origin=${encodeURIComponent(origin)}`} className="flex min-h-12 items-center rounded-xl bg-emerald-800 px-4 py-3 text-sm font-semibold text-white">QR-ləri çap et</Link>}</div>
       <label className="block space-y-1 text-sm"><span>QR üçün saytın yayımlanmış ünvanı</span><input className="w-full rounded-xl border border-slate-300 px-3 py-2" value={customOrigin} onChange={(event) => setCustomOrigin(event.target.value)} placeholder="https://layihenin-adi.vercel.app" type="url" maxLength={500} /></label>
       <p className="text-xs text-slate-500">Yayımlanmış saytda ünvan avtomatik seçilir. Kompüterdə işləyərkən Vercel ünvanını bura yaz.</p>
       {!origin && <p className="text-sm text-amber-700">Telefon üçün QR yaratmağa https:// ilə başlayan Vercel və ya domen ünvanını daxil et.</p>}

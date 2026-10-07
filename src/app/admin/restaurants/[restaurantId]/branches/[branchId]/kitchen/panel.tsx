@@ -9,6 +9,7 @@ import {useKitchen} from "@/lib/use-kitchen";
 import KitchenSound from "./kitchen-sound";
 
 export default function KitchenPanel({restaurantId,branchId,initialBoard,warning}:{restaurantId:string;branchId:string;initialBoard:KitchenBoard;warning:string}){
+  const [summary,setSummary]=useState(false);
   const live=useKitchen(restaurantId,branchId,initialBoard),board=live.board;
   const [lane,setLane]=useState<KitchenLane>(()=>{
     if(initialBoard.filters.search)for(const key of Object.keys(kitchenLanes) as KitchenLane[])if(BigInt(initialBoard.counts[key])>BigInt(0))return key;
@@ -25,6 +26,8 @@ export default function KitchenPanel({restaurantId,branchId,initialBoard,warning
     {live.notice&&<p role="status" className="break-words rounded-xl bg-slate-100 p-4 text-sm leading-6 text-slate-800">{live.notice}</p>}
     <form action={`${root}/kitchen`} aria-label="Mətbəx axtarışı" className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4"><label className="min-w-0 flex-1 space-y-2 text-sm font-medium"><span>Masa və ya sifariş axtar</span><input aria-label="Masa və ya sifariş axtar" name="q" maxLength={80} defaultValue={board.filters.search} placeholder="Masa adı, nömrəsi və ya #sifariş" className="min-h-12 w-full min-w-0 rounded-xl border border-slate-300 px-3 py-3 text-base"/></label><button disabled={Boolean(live.pending)} className={button}>Axtar</button><Link prefetch={false} href={`${root}/kitchen`} className="inline-flex min-h-12 items-center px-2 text-sm font-semibold text-emerald-800">Təmizlə</Link></form>
     {board.filters.search&&<p className="break-words text-sm text-slate-500">Axtarış: “{board.filters.search}”. Saylar bu seçimə uyğundur.</p>}
+    <div className="grid grid-cols-2 gap-2"><button onClick={()=>setSummary(false)} aria-pressed={!summary} className={button}>Masa sifarişləri</button><button onClick={()=>setSummary(true)} aria-pressed={summary} className={button}>Məhsul xülasəsi</button></div>
+    {summary?<section aria-label="Mətbəx məhsul xülasəsi" className="space-y-4"><p className="text-sm leading-6 text-slate-600">Bütün gözləyən sifarişlərin məhsul sayı. Axtarış varsa həmin masalar üzrə hesablanır; siyahının səhifə limiti saylara təsir etmir. Xüsusi qeydləri masa sifarişlərindən yoxla.</p><div className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3">{board.product_summary.map(p=><article key={p.id+":"+p.name} className="min-w-0 space-y-3 rounded-2xl border border-slate-200 bg-white p-4"><h2 className="break-words text-lg font-bold">{p.name}</h2><p className="text-sm font-semibold text-emerald-800">Hazırlanmalı: {p.to_prepare} ədəd</p><dl className="grid grid-cols-3 gap-2 text-xs"><div className="rounded-xl bg-emerald-50 p-3"><dt>Yeni</dt><dd className="mt-2 text-lg font-bold">{p.new_qty}</dd></div><div className="rounded-xl bg-blue-50 p-3"><dt>İcrada</dt><dd className="mt-2 text-lg font-bold">{String(BigInt(p.accepted_qty)+BigInt(p.preparing_qty))}</dd></div><div className="rounded-xl bg-amber-50 p-3"><dt>Hazır</dt><dd className="mt-2 text-lg font-bold">{p.ready_qty}</dd></div></dl>{p.note_count!=="0"&&<p className="text-xs leading-5 text-amber-800">{p.note_count} sifarişdə xüsusi qeyd var. Masa sifarişlərinə bax.</p>}</article>)}</div>{!board.product_summary.length&&<p className="rounded-xl border bg-white p-5 text-sm text-slate-500">Gözləyən məhsul yoxdur.</p>}</section>:<>
     <nav aria-label="Mətbəx mərhələləri" className="grid grid-cols-3 gap-2 lg:hidden">{Object.entries(kitchenLanes).map(([key,label])=><button type="button" key={key} onClick={()=>setLane(key as KitchenLane)} aria-pressed={lane===key} className={`min-h-14 min-w-0 space-y-2 rounded-xl p-3 text-center text-xs font-semibold ${lane===key?"bg-emerald-800 text-white":"border border-slate-200 bg-white text-slate-700"}`}><span className="block break-words">{label}</span><span className="block tabular-nums">{board.counts[key as KitchenLane]}</span></button>)}</nav>
     <div className="grid items-start gap-4 lg:grid-cols-3">{Object.entries(kitchenLanes).map(([key,title])=>{
       const stage=key as KitchenLane,orders=board.orders.filter(order=>order.lane===stage),hasMore=BigInt(board.counts[stage])>BigInt(orders.length);
@@ -41,6 +44,7 @@ export default function KitchenPanel({restaurantId,branchId,initialBoard,warning
         {hasMore&&(board.filters.limit<150?<button type="button" disabled={Boolean(live.pending)} onClick={()=>void live.refresh(board.filters.limit+30)} className={`${button} w-full`}>Daha çox sifariş göstər</button>:<p className="rounded-xl bg-slate-100 p-4 text-sm leading-6 text-slate-600">İlk 150 sifariş göstərilir. Qalanları tapmaq üçün masa və ya #sifariş nömrəsi ilə axtar.</p>)}
       </section>;
     })}</div>
+    </>}
     {board.can_service&&<Link prefetch={false} href={`${root}/orders`} className={button}>Servis və hesab üçün işçi panelini aç →</Link>}
   </div>;
 }

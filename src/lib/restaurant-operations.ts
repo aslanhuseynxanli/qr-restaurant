@@ -1,0 +1,16 @@
+import {orderError} from "./qr-orders";
+export type ManualMenu={restaurant_name:string;branch_name:string;currency:string;accepting_orders:boolean;tables:{id:string;name:string;number:number;session_id:string|null;status:"OPEN"|"BILL_REQUESTED"|"EMPTY"}[];products:{id:string;name:string;category:string;price:string;available:boolean}[]};
+export type ManualLine={id:string;quantity:number;price:string};
+export type ManualAttempt={table:string;session:string|null;request:string;items:ManualLine[];currency:string;note:string};
+export type ManualReceipt={order_id:string;number:string;table_name:string;total:string;currency:string};
+export type OperationState={error:string;success?:string};
+export function operationsError(code?:string){const errors:Record<string,string>={INVALID_ORDER:"Sifariş məlumatlarını yoxla.",INVALID_TABLE:"Bu masa aktiv deyil. Masa siyahısını yenilə.",STALE_TABLE:"Masanın hesabı dəyişib. Siyahı yeniləndi; masanı və səbəti yoxlayıb yenidən göndər.",NO_ORDERS:"Bu masada hesab hazırlamaq üçün sifariş yoxdur.",TABLE_NUMBER_EXISTS:"Seçilən nömrələr arasında mövcud masa var. Başlanğıc nömrəsini dəyiş; heç bir masa əlavə edilmədi.",TABLE_LIMIT:"Bu filialda ən çox 1000 masa ola bilər.",INVALID_TABLE_BATCH:"Say 1–100, başlanğıc nömrəsi isə müsbət tam ədəd olmalıdır.",INVALID_BRANCH:"Aktiv filial tapılmadı.",INVALID_RESTAURANT:"Restoran məlumatlarını yoxla.",INVALID_FILTER:"Axtarış seçimini yoxla."};return errors[code||""]||orderError(code);}
+export function cents(price:string){const [whole,fraction=""]=price.split(".");return BigInt(whole)*BigInt(100)+BigInt(fraction.padEnd(2,"0"));}
+export function amount(value:bigint){return `${value/BigInt(100)}.${String(value%BigInt(100)).padStart(2,"0")}`;}
+export function readPending<T>(key:string):T|null{try{const value=sessionStorage.getItem(key);return value&&value.length<=40000?JSON.parse(value) as T:null;}catch{return null;}}
+export function savePending(key:string,value:unknown){try{if(value===null)sessionStorage.removeItem(key);else sessionStorage.setItem(key,JSON.stringify(value));}catch{}}
+export type PlatformRestaurant={id:string;name:string;slug:string;status:"active"|"trial"|"suspended";is_active:boolean;version:number;branches:string;tables:string;staff:string};
+export type PlatformBoard={generated_at:string;filters:{search:string;status:string|null;limit:number};count:string;restaurants:PlatformRestaurant[];events:{id:string;at:string;restaurant:string;status:string;is_active:boolean}[]};
+export const platformStatusLabels={active:"Aktiv",trial:"Sınaq",suspended:"Dayandırılıb",inactive:"Deaktiv"};
+
+export function readManualPending(key:string):ManualAttempt|null{const p=readPending<ManualAttempt>(key);const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;return p&&typeof p.table==="string"&&uuid.test(p.table)&&typeof p.request==="string"&&uuid.test(p.request)&&(p.session===null||typeof p.session==="string"&&uuid.test(p.session))&&typeof p.currency==="string"&&/^[A-Z]{3}$/.test(p.currency)&&typeof p.note==="string"&&p.note.length<=500&&Array.isArray(p.items)&&p.items.length>0&&p.items.length<=50&&p.items.every(x=>x&&typeof x.id==="string"&&uuid.test(x.id)&&Number.isInteger(x.quantity)&&x.quantity>=1&&x.quantity<=20&&typeof x.price==="string"&&/^[0-9]{1,8}(\.[0-9]{1,2})?$/.test(x.price))?p:null;}

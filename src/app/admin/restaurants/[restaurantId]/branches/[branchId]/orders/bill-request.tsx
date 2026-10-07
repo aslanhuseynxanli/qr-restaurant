@@ -1,0 +1,17 @@
+"use client";
+import {useEffect,useRef,useState} from "react";
+import {createClient} from "@/lib/supabase/client";
+import {paymentLabels,type PaymentMethod,type StaffBoard,type StaffSession} from "@/lib/qr-orders";
+import {operationsError,readPending,savePending} from "@/lib/restaurant-operations";
+type Attempt={request:string;version:number;method:PaymentMethod};
+export default function BillRequest({restaurantId,branchId,session,onClose,onSuccess}:{restaurantId:string;branchId:string;session:StaffSession;onClose:()=>void;onSuccess:(board:StaffBoard)=>void}){
+  const key=`qr-staff-bill-${restaurantId}-${session.id}`,[attempt,setAttempt]=useState<Attempt|null>(()=>readPending(key));
+  const [method,setMethod]=useState<PaymentMethod>(attempt?.method||"CASH"),[busy,setBusy]=useState(false),[error,setError]=useState("");const pending=useRef(false),shell=useRef<HTMLDialogElement>(null);
+  useEffect(()=>{const d=shell.current;d?.showModal();return()=>d?.close();},[]);
+  async function submit(){if(pending.current)return;pending.current=true;setBusy(true);setError("");const input=attempt||{request:crypto.randomUUID(),version:session.version,method};setAttempt(input);savePending(key,input);
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);try{const result=await createClient().rpc("qr_staff_bill",{p_restaurant_id:restaurantId,p_branch_id:branchId,p_session_id:session.id,p_version:input.version,p_request_id:input.request,p_method:input.method}).abortSignal(controller.signal);
+      if(result.error){if(result.error.code==="P0001"||result.error.code==="42501"){setAttempt(null);savePending(key,null);setError(operationsError(result.error.code==="42501"?"FORBIDDEN":result.error.message));}else setError("Cavab alınmadı. Eyni hesab istəyini yenidən yoxla.");return;}
+      if(!result.data){setError("Cavab alınmadı. Eyni hesab istəyini yenidən yoxla.");return;}savePending(key,null);onSuccess(result.data as StaffBoard);
+    }catch{setError("Bağlantı alınmadı. Eyni hesab istəyini yenidən yoxla.");}finally{clearTimeout(timer);pending.current=false;setBusy(false);}}
+  return <dialog ref={shell} aria-labelledby="staff-bill-title" onCancel={event=>{if(busy)event.preventDefault();else onClose();}} className="m-auto w-[calc(100%_-_2rem)] max-w-md rounded-2xl bg-transparent p-0 backdrop:bg-slate-950/40"><section className="w-full max-w-md space-y-4 rounded-2xl bg-white p-5"><h2 id="staff-bill-title" className="text-lg font-bold">{session.table_name} · Hesabı hazırla</h2><p className="text-sm leading-6 text-slate-500">Müştərinin ödəniş üsulunu seç. Bu addım ödənişi qeydə almır; ödəniş alındıqdan sonra masanı bağla.</p><label className="block space-y-2 text-sm font-medium"><span>Ödəniş üsulu</span><select aria-label="Hesabın ödəniş üsulu" value={method} disabled={busy||Boolean(attempt)} onChange={e=>setMethod(e.target.value as PaymentMethod)} className="min-h-12 w-full rounded-xl border px-3 text-base">{Object.entries(paymentLabels).map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label>{error&&<p role="alert" className="text-sm text-red-700">{error}</p>}<div className="flex flex-wrap gap-2"><button disabled={busy} onClick={()=>void submit()} className="min-h-12 flex-1 rounded-xl bg-emerald-800 px-3 font-semibold text-white disabled:opacity-40">{busy?"Hazırlanır...":attempt?"Eyni istəyi yenidən yoxla":"Hesabı hazırla"}</button><button disabled={busy} onClick={onClose} className="min-h-12 rounded-xl border px-4">Bağla</button></div></section></dialog>;
+}
