@@ -41,6 +41,7 @@ export default async function AdminPage() {
   return <main className="min-h-screen bg-slate-50 text-slate-900">
     <header className="border-b border-slate-200 bg-white"><div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-5 py-5"><div><p className="text-lg font-bold">QR Restoran</p><p className="text-sm text-slate-500">İdarəetmə paneli</p></div><div className="flex flex-wrap items-center gap-2">
       {role==="SUPER_ADMIN"&&<Link href="/admin/restaurants/new" className="min-h-11 rounded-xl bg-emerald-700 px-4 py-3 text-sm font-medium text-white">Restoran əlavə et</Link>}
+      {profile?.is_active&&<Link href="/admin/account" className="min-h-11 rounded-xl border border-slate-300 px-4 py-3 text-sm font-medium">Hesab ayarları</Link>}
       <form action={signOutAction}><button className="min-h-11 rounded-xl border border-slate-300 px-4 py-3 text-sm font-medium">Çıxış</button></form>
     </div></div></header>
     <div className="mx-auto max-w-5xl space-y-6 px-5 py-8"><section className="rounded-2xl border border-slate-200 bg-white p-6"><h1 className="break-words text-2xl font-bold">{profile?.full_name||"Xoş gəldin"}</h1><p className="mt-2 break-all text-sm text-slate-500">{user.email}</p>

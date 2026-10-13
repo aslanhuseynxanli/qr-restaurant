@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { clearRecovery } from "@/lib/account-security";
 
 export async function signInAction(
   _previous: { error: string },
@@ -50,11 +51,13 @@ export async function signInAction(
     return { error: "Bağlantı alınmadı. Yenidən cəhd et." };
   }
 
+  await clearRecovery();
   revalidatePath("/", "layout");
   redirect("/admin");
 }
 
 export async function signOutAction() {
+  await clearRecovery();
   const supabase = await createClient();
 
   const { error } = await supabase.auth.signOut({

@@ -2,8 +2,9 @@
 
 import { useActionState, useState } from "react";
 import { signInAction } from "./actions";
+import Link from "next/link";
 
-export default function LoginForm() {
+export default function LoginForm({ passwordChanged = false }: { passwordChanged?: boolean }) {
   const [state, action, pending] = useActionState(signInAction, {
     error: "",
   });
@@ -37,6 +38,8 @@ export default function LoginForm() {
               İdarəetmə üçün email və şifrəni yaz.
             </p>
           </div>
+
+          {passwordChanged && <p role="status" className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">Şifrə yeniləndi. Yeni şifrə ilə daxil ol.</p>}
 
           <div>
             <label
@@ -110,6 +113,7 @@ export default function LoginForm() {
           >
             {pending ? "Daxil olunur…" : "Daxil ol"}
           </button>
+          <Link href="/forgot-password" className="block min-h-11 py-3 text-center text-sm font-medium text-emerald-800">Şifrəni unutmusansa</Link>
         </form>
       </div>
     </main>

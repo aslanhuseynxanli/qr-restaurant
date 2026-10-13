@@ -32,10 +32,14 @@ export async function proxy(request: NextRequest) {
   response.headers.set("Cache-Control", "private, no-store");
   response.headers.set("Expires", "0");
   response.headers.set("Pragma", "no-cache");
+  if (request.nextUrl.pathname.startsWith("/auth/") || request.nextUrl.pathname === "/forgot-password" || request.nextUrl.pathname === "/admin/account") {
+    response.headers.set("Referrer-Policy", "no-referrer");
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+  }
 
   return response;
 }
 
 export const config = {
-  matcher: ["/", "/login", "/admin/:path*"],
+  matcher: ["/", "/login", "/admin/:path*", "/forgot-password", "/auth/:path*"],
 };
