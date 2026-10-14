@@ -1,58 +1,23 @@
-import Link from "next/link";
+import {redirect} from "next/navigation";
+import PortalLink from "@/components/portal-link";
+import WorkspaceShell from "@/components/workspace-shell";
+import {getWorkspace} from "@/lib/workspace";
+import {assignmentPath} from "@/lib/workspace-types";
 import PlatformPanel from "./platform-panel";
 import type {PlatformBoard} from "@/lib/restaurant-operations";
-import {redirect} from "next/navigation";
-import {createClient} from "@/lib/supabase/server";
-import {signOutAction} from "@/app/login/actions";
-
-type Restaurant={id:string;name:string;slug:string;status:string;is_active:boolean};
-type Assignment={id:string;name:string;restaurant_id:string;restaurant_name:string;staff_kind:"WAITER"|"KITCHEN"};
-export default async function AdminPage() {
-  const supabase=await createClient(),{data:{user},error:authError}=await supabase.auth.getUser();
-  if(authError||!user)redirect("/login");
-  const [profileResult,platformResult,membersResult]=await Promise.all([
-    supabase.from("profiles").select("full_name,is_active").eq("id",user.id).maybeSingle(),
-    supabase.from("platform_admins").select("role").eq("user_id",user.id).eq("is_active",true).maybeSingle(),
-    supabase.from("restaurant_members").select("role,restaurant_id,branch_id,staff_kind").eq("user_id",user.id).eq("is_active",true),
-  ]);
-  if(profileResult.error||platformResult.error||membersResult.error)throw new Error("Hesab icazələri oxunmadı. Yenidən cəhd et.");
-  const profile=profileResult.data,members=membersResult.data||[];
-  const role=!profile?.is_active?null:platformResult.data?.role==="SUPER_ADMIN"?"SUPER_ADMIN":members.some(m=>m.role==="RESTAURANT_ADMIN")?"RESTAURANT_ADMIN":members.some(m=>m.role==="STAFF")?"STAFF":null;
-  const ownerIds=members.filter(m=>m.role==="RESTAURANT_ADMIN").map(m=>m.restaurant_id);
-  let restaurants:Restaurant[]=[],assignments:Assignment[]=[];
-  let platformBoard:PlatformBoard|null=null;
-  if(role==="SUPER_ADMIN") {const result=await supabase.rpc("platform_restaurants_board",{p_search:null,p_status:null,p_limit:30});if(result.error||!result.data)throw new Error("Platforma paneli yüklənmədi. 024 SQL yeniləməsini yoxla.");platformBoard=result.data as PlatformBoard;}
-  if(role&&role!=="SUPER_ADMIN") {
-    const result=await supabase.from("restaurants").select("id,name,slug,status,is_active").order("created_at",{ascending:false});
-    if(result.error)throw new Error("Restoranlar yüklənmədi.");
-    const visible=(result.data||[]) as Restaurant[];
-    restaurants=visible.filter(r=>ownerIds.includes(r.id));
-    const staff=members.filter(m=>m.role==="STAFF"&&m.branch_id),branchIds=staff.map(m=>m.branch_id as string);
-    if(branchIds.length) {
-      const result=await supabase.from("branches").select("id,name,restaurant_id").in("id",branchIds).eq("is_active",true);
-      if(result.error)throw new Error("Təyin olunan filiallar yüklənmədi.");
-      assignments=(result.data||[]).flatMap(b=>{
-        const restaurant=visible.find(r=>r.id===b.restaurant_id&&r.is_active&&["active","trial"].includes(r.status));
-        return restaurant&&staff.some(m=>m.branch_id===b.id&&m.restaurant_id===b.restaurant_id)?[{...b,restaurant_name:restaurant.name,staff_kind:staff.find(m=>m.branch_id===b.id&&m.restaurant_id===b.restaurant_id)?.staff_kind==="KITCHEN"?"KITCHEN" as const:"WAITER" as const}]:[];
-      });
-    }
+export default async function AdminPage({searchParams}:{searchParams:Promise<{secim?:string}>}){
+  const {workspace,userId,supabase}=await getWorkspace(),query=await searchParams;
+  if(workspace.active&&!workspace.super_admin&&query.secim!=="1"){
+    if(workspace.restaurants.length===1)redirect(`/admin/restaurants/${workspace.restaurants[0].id}`);
+    if(!workspace.restaurants.length&&workspace.assignments.length===1)redirect(assignmentPath(workspace.assignments[0]));
   }
-  const roleName=role==="SUPER_ADMIN"?"Platforma admini":role==="RESTAURANT_ADMIN"?"Restoran sahibi":"İşçi";
-  return <main className="min-h-screen bg-slate-50 text-slate-900">
-    <header className="border-b border-slate-200 bg-white"><div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-5 py-5"><div><p className="text-lg font-bold">QR Restoran</p><p className="text-sm text-slate-500">İdarəetmə paneli</p></div><div className="flex flex-wrap items-center gap-2">
-      {role==="SUPER_ADMIN"&&<Link href="/admin/restaurants/new" className="min-h-11 rounded-xl bg-emerald-700 px-4 py-3 text-sm font-medium text-white">Restoran əlavə et</Link>}
-      {profile?.is_active&&<Link href="/admin/account" className="min-h-11 rounded-xl border border-slate-300 px-4 py-3 text-sm font-medium">Hesab ayarları</Link>}
-      <form action={signOutAction}><button className="min-h-11 rounded-xl border border-slate-300 px-4 py-3 text-sm font-medium">Çıxış</button></form>
-    </div></div></header>
-    <div className="mx-auto max-w-5xl space-y-6 px-5 py-8"><section className="rounded-2xl border border-slate-200 bg-white p-6"><h1 className="break-words text-2xl font-bold">{profile?.full_name||"Xoş gəldin"}</h1><p className="mt-2 break-all text-sm text-slate-500">{user.email}</p>
-      {role?<span className="mt-4 inline-block rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">{roleName}</span>:<p role="alert" className="mt-4 text-sm text-red-700">{profile?.is_active?"Bu hesaba aktiv idarəetmə rolu təyin edilməyib. Restoran sahibi ilə əlaqə saxla.":"Bu hesab aktiv deyil. Adminlə əlaqə saxla."}</p>}
-    </section>
-    {platformBoard&&<PlatformPanel initialBoard={platformBoard}/>}
-    {role==="RESTAURANT_ADMIN"&&<section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6"><h2 className="text-lg font-semibold">Restoranlar ({restaurants.length})</h2>{!restaurants.length&&<p className="text-sm text-slate-500">Hələ restoran əlavə edilməyib.</p>}
-      {restaurants.map(r=><div key={r.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4"><div><Link href={`/admin/restaurants/${r.id}`} className="break-words font-medium text-emerald-700">{r.name}</Link><p className="mt-1 text-sm text-slate-500">{r.slug}</p></div><div className="flex flex-wrap items-center gap-2"><span className="rounded-lg bg-slate-100 px-3 py-2 text-xs">{!r.is_active?"Deaktiv":r.status==="active"?"Aktiv":r.status==="trial"?"Sınaq":"Dayandırılıb"}</span>{r.is_active&&["active","trial"].includes(r.status)&&<Link href={`/admin/restaurants/${r.id}/staff`} className="min-h-11 rounded-xl border border-emerald-200 px-4 py-3 text-sm font-medium text-emerald-800">İşçilər</Link>}</div></div>)}
-    </section>}
-    {!!assignments.length&&<section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6"><h2 className="text-lg font-semibold">Təyin olunan filiallar</h2>{assignments.map(b=><div key={b.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 p-4"><div><p className="break-words font-semibold">{b.name}</p><p className="mt-1 text-sm text-slate-500">{b.restaurant_name} · {b.staff_kind==="KITCHEN"?"Mətbəx":"Ofisiant"}</p></div><div className="flex flex-wrap gap-2">{b.staff_kind!=="KITCHEN"?<Link href={`/admin/restaurants/${b.restaurant_id}/branches/${b.id}/orders`} className="min-h-12 rounded-xl bg-emerald-800 px-4 py-3 text-sm font-semibold text-white">Sifarişlər və çağırışlar</Link>:<Link prefetch={false} href={`/admin/restaurants/${b.restaurant_id}/branches/${b.id}/kitchen`} className="min-h-12 rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm font-semibold text-emerald-800">Mətbəx ekranı</Link>}</div></div>)}</section>}
-    {role==="STAFF"&&!assignments.length&&<p role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">Hazırda giriş edə biləcəyin aktiv filial yoxdur. Restoran sahibi ilə əlaqə saxla.</p>}
-    </div>
-  </main>;
+  let board:PlatformBoard|null=null;
+  if(workspace.active&&workspace.super_admin){const result=await supabase.rpc("platform_restaurants_board",{p_search:null,p_status:null,p_limit:30});if(result.error||!result.data)throw new Error("Platforma paneli yüklənmədi.");board=result.data as PlatformBoard;}
+  return <WorkspaceShell workspace={workspace} userId={userId}><main className="mx-auto max-w-6xl space-y-6 px-4 py-7 sm:px-8"><header><p className="text-sm font-medium text-emerald-700">Xoş gəldin{workspace.name?`, ${workspace.name}`:""}</p><h1 className="mt-2 text-2xl font-bold">{board?"Restoranların idarə edilməsi":"İş yerini seç"}</h1><p className="mt-2 text-sm leading-6 text-slate-500">{board?"Restoran tap, sahib hesabını və statusunu idarə et.":"İşləyəcəyin restoranı və ya filialı aç."}</p></header>
+    {!workspace.active?<p role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">Bu hesab aktiv deyil. Restoran sahibi və ya platforma admini ilə əlaqə saxla.</p>:board?<PlatformPanel initialBoard={board}/>:<>
+      {!!workspace.restaurants.length&&<section className="grid gap-4 md:grid-cols-2">{workspace.restaurants.map(r=><article key={r.id} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6"><div><h2 className="text-xl font-bold">{r.name}</h2><p className="mt-2 text-sm text-slate-500">{workspace.branches.filter(b=>b.restaurant_id===r.id).length} filial · Restoran sahibi</p></div><PortalLink href={`/admin/restaurants/${r.id}`} className="rounded-xl bg-emerald-800 px-4 py-3 font-semibold text-white">İdarəetməni aç</PortalLink></article>)}</section>}
+      {!!workspace.assignments.length&&<section className="grid gap-4 md:grid-cols-2">{workspace.assignments.map(a=><article key={a.restaurant_id+":"+a.id} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6"><div><p className="text-sm text-slate-500">{a.restaurant_name}</p><h2 className="mt-2 text-xl font-bold">{a.name}</h2></div><PortalLink href={assignmentPath(a)} className="rounded-xl bg-emerald-800 px-4 py-3 font-semibold text-white">{a.staff_kind==="KITCHEN"?"Mətbəxi aç":"Ofisiant panelini aç"}</PortalLink></article>)}</section>}
+      {!workspace.restaurants.length&&!workspace.assignments.length&&<p role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">Bu hesaba aktiv iş yeri təyin edilməyib. Restoran sahibi ilə əlaqə saxla.</p>}
+    </>}
+  </main></WorkspaceShell>;
 }

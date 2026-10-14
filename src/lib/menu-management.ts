@@ -2,7 +2,7 @@ export const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-
 export type MenuCategory = { id: string; name: string; description: string | null; sort_order: number; is_active: boolean; updated_at: string };
 export type MenuProduct = { id: string; category_id: string; name: string; description: string | null; base_price: number; image_url: string | null; sort_order: number; is_active: boolean; updated_at: string };
 export type BranchProduct = { product_id: string; price_override: number | null; is_available: boolean; is_visible: boolean; updated_at: string };
-export type MenuActionState = { error: string };
+export type MenuActionState = { error: string; success?: string };
 
 // Keep prices as decimal strings until Postgres validates and stores them.
 export function parseMenuPrice(value: string): string | null {

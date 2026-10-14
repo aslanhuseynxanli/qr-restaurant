@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isMenuImageUrl } from "@/lib/menu-image-url";
 import { menuSortOrder, parseMenuPrice, uuidPattern, type MenuActionState } from "@/lib/menu-management";
@@ -30,7 +29,7 @@ export async function saveCategoryAction(_previous: MenuActionState, form: FormD
   const path = `/admin/restaurants/${restaurantId}/menu`;
   revalidatePath(path);
   revalidatePath("/r/[slug]/t/[token]", "page");
-  redirect(path);
+  return {error:"",success:categoryId?"Kateqoriya yeniləndi.":"Kateqoriya əlavə edildi."};
 }
 
 export async function saveProductAction(_previous: MenuActionState, form: FormData): Promise<MenuActionState> {
@@ -51,5 +50,5 @@ export async function saveProductAction(_previous: MenuActionState, form: FormDa
   const path = `/admin/restaurants/${restaurantId}/menu`;
   revalidatePath(path);
   revalidatePath("/r/[slug]/t/[token]", "page");
-  redirect(path);
+  return {error:"",success:productId?"Məhsul yeniləndi.":"Məhsul əlavə edildi."};
 }

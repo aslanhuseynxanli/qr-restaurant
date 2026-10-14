@@ -1,46 +1,20 @@
-import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { BranchLocationForm, TableForm } from "./forms";
+import {notFound} from "next/navigation";
+import PortalLink from "@/components/portal-link";
+import Disclosure from "@/components/disclosure";
+import {requireMenuAdmin} from "@/lib/menu-admin";
+import {BranchLocationForm,TableForm} from "./forms";
 import TableQRList from "./table-qr";
 import BulkTables from "./bulk-tables";
-
-export default async function BranchPage({ params }: { params: Promise<{ restaurantId: string; branchId: string }> }) {
-  const { restaurantId, branchId } = await params;
-  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (!uuid.test(restaurantId) || !uuid.test(branchId)) notFound();
-  const supabase = await createClient();
-  const { data: auth, error: authError } = await supabase.auth.getUser();
-  if (authError || !auth.user) redirect("/login");
-  const [restaurantResult, branchResult, tablesResult, profileResult, platformResult, memberResult] = await Promise.all([
-    supabase.from("restaurants").select("id,name,slug,status,is_active").eq("id", restaurantId).maybeSingle(),
-    supabase.from("branches").select("id,name,address,latitude,longitude,allowed_radius_meters,accepting_orders,is_active").eq("id", branchId).eq("restaurant_id", restaurantId).maybeSingle(),
-    supabase.from("tables").select("id,name,table_number,qr_token,is_active").eq("restaurant_id", restaurantId).eq("branch_id", branchId).order("table_number"),
-    supabase.from("profiles").select("is_active").eq("id", auth.user.id).maybeSingle(),
-    supabase.from("platform_admins").select("role").eq("user_id", auth.user.id).eq("is_active", true).maybeSingle(),
-    supabase.from("restaurant_members").select("role").eq("user_id", auth.user.id).eq("restaurant_id", restaurantId).eq("is_active", true).eq("role", "RESTAURANT_ADMIN").maybeSingle(),
-  ]);
-  if ([restaurantResult, branchResult, tablesResult, profileResult, platformResult, memberResult].some((result) => result.error)) throw new Error("Filial məlumatları yüklənmədi.");
-  const restaurant = restaurantResult.data;
-  const branch = branchResult.data;
-  if (!restaurant || !branch) notFound();
-  const canManage = profileResult.data?.is_active === true && (platformResult.data?.role === "SUPER_ADMIN" || memberResult.data?.role === "RESTAURANT_ADMIN") && restaurant.is_active && ["trial", "active"].includes(restaurant.status);
-  const tables = tablesResult.data || [];
-  const maxNumber = Math.max(0, ...tables.map((table) => table.table_number));
-  const suggestedNumber = maxNumber < 2147483647 ? maxNumber + 1 : 1;
-
-  return <main className="min-h-screen bg-slate-50 p-4 text-slate-900 sm:p-8">
-    <div className="mx-auto max-w-6xl space-y-6">
-      <Link href={`/admin/restaurants/${restaurantId}`} className="text-sm text-emerald-700 hover:underline">← {restaurant.name}</Link>
-      <header><h1 className="text-2xl font-semibold">{branch.name}</h1><p className="mt-1 text-sm text-slate-500">{branch.address || "Ünvan qeyd edilməyib"} · {branch.accepting_orders && branch.is_active ? "Sifariş qəbulu açıqdır" : "Sifariş qəbulu bağlıdır"}</p></header>
-      {/* qr-orders-link-v1 */}
-      <div className="flex flex-wrap gap-2"><Link href={`/admin/restaurants/${restaurantId}/branches/${branchId}/orders`} className="inline-flex min-h-12 items-center rounded-xl bg-emerald-800 px-5 py-3 text-sm font-semibold text-white">Sifarişlər və çağırışlar</Link><Link prefetch={false} href={`/admin/restaurants/${restaurantId}/branches/${branchId}/kitchen`} className="inline-flex min-h-12 items-center rounded-xl border border-emerald-200 bg-white px-5 py-3 text-sm font-semibold text-emerald-800">Mətbəx ekranı</Link></div>
-      {canManage&&branch.is_active&&<BulkTables restaurantId={restaurantId} branchId={branchId} suggestedNumber={suggestedNumber}/>}
-      <TableQRList tables={tables} slug={restaurant.slug} printHref={`/admin/restaurants/${restaurantId}/branches/${branchId}/print`}/>
-      {canManage && <div className="grid items-start gap-6 lg:grid-cols-2">
-        {branch.is_active && <TableForm key={tables.length} restaurantId={restaurantId} branchId={branchId} suggestedNumber={suggestedNumber} />}
-        <BranchLocationForm key={`${branch.latitude}:${branch.longitude}:${branch.allowed_radius_meters}:${branch.address}`} restaurantId={restaurantId} branchId={branchId} latitude={Number(branch.latitude)} longitude={Number(branch.longitude)} address={branch.address} radius={branch.allowed_radius_meters} />
-      </div>}
-    </div>
+export default async function BranchPage({params}:{params:Promise<{restaurantId:string;branchId:string}>}){
+  const {restaurantId,branchId}=await params,{supabase,restaurant,branches,canManage}=await requireMenuAdmin(restaurantId),branch=branches.find(b=>b.id===branchId);
+  if(!branch)notFound();
+  const result=await supabase.from("tables").select("id,name,table_number,qr_token,is_active").eq("restaurant_id",restaurantId).eq("branch_id",branchId).order("table_number");
+  if(result.error)throw new Error("Masalar yüklənmədi.");
+  const tables=result.data||[],maxNumber=Math.max(0,...tables.map(t=>t.table_number)),suggestedNumber=maxNumber<2147483647?maxNumber+1:1;
+  const root=`/admin/restaurants/${restaurantId}/branches/${branchId}`;
+  return <main className="mx-auto max-w-6xl space-y-6 px-4 py-7 sm:px-8"><header className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-bold">Masalar və QR</h1><p className="mt-2 text-sm text-slate-500">{branch.name} · {tables.length} masa</p></div><PortalLink href={`${root}/orders`} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700">Ofisiant panelini aç</PortalLink></header>
+    {canManage&&branch.is_active&&<Disclosure title="Masa əlavə et" defaultOpen={!tables.length}><p className="mb-4 text-sm leading-6 text-slate-500">Bir neçə masa üçün sayını yaz. Hər masa QR kodu ilə birlikdə yaranır.</p><BulkTables restaurantId={restaurantId} branchId={branchId} suggestedNumber={suggestedNumber}/><Disclosure title="Tək masa əlavə et"><TableForm key={tables.length} restaurantId={restaurantId} branchId={branchId} suggestedNumber={suggestedNumber}/></Disclosure></Disclosure>}
+    <TableQRList tables={tables} slug={restaurant.slug} printHref={`${root}/print`}/>
+    {canManage&&<Disclosure title="Filialın məkanı və sifariş radiusu"><BranchLocationForm key={`${branch.latitude}:${branch.longitude}:${branch.allowed_radius_meters}`} restaurantId={restaurantId} branchId={branchId} latitude={Number(branch.latitude)} longitude={Number(branch.longitude)} address={branch.address} radius={branch.allowed_radius_meters}/></Disclosure>}
   </main>;
 }

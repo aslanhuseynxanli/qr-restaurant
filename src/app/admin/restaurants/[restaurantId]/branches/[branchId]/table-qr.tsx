@@ -16,14 +16,15 @@ function QRCard({ table, slug, origin }: { table: Table; slug: string; origin: s
   const url = origin ? origin + path : "";
   const [qr, setQR] = useState({ url: "", image: "", error: "" });
   const [copyMessage, setCopyMessage] = useState("");
+  const [expanded,setExpanded]=useState(false);
   useEffect(() => {
-    if (!url || !table.is_active) return;
+    if (!expanded || !url || !table.is_active) return;
     let cancelled = false;
     void QRCode.toDataURL(url, { width: 800, margin: 4, errorCorrectionLevel: "M", color: { dark: "#000000", light: "#ffffff" } })
       .then((image) => { if (!cancelled) setQR({ url, image, error: "" }); })
       .catch(() => { if (!cancelled) setQR({ url, image: "", error: "QR kod yaradıla bilmədi." }); });
     return () => { cancelled = true; };
-  }, [url, table.is_active]);
+  }, [url, table.is_active,expanded]);
   const ready = qr.url === url && !!qr.image;
   async function copy() {
     try { await navigator.clipboard.writeText(url); setCopyMessage("Keçid kopyalandı."); }
@@ -31,10 +32,11 @@ function QRCard({ table, slug, origin }: { table: Table; slug: string; origin: s
   }
   return <article className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">
     <div><h3 className="font-semibold">{table.name}</h3><p className="text-sm text-slate-500">Masa №{table.table_number}{!table.is_active && " · Qeyri-aktiv"}</p></div>
-    {table.is_active && url && <div className="flex min-h-56 items-center justify-center rounded-xl border border-slate-100 bg-white">
+    {table.is_active&&<button type="button" aria-expanded={expanded} onClick={()=>setExpanded(!expanded)} className="min-h-11 rounded-xl bg-emerald-800 px-4 py-3 text-sm font-semibold text-white">{expanded?"QR-ni bağla":"QR göstər"}</button>}
+    {expanded && table.is_active && url && <div className="flex min-h-56 items-center justify-center rounded-xl border border-slate-100 bg-white">
       {ready ? <Image src={qr.image} alt={`${table.name} üçün QR kod`} width={224} height={224} unoptimized /> : <p className="text-sm text-slate-500">{qr.url === url && qr.error ? qr.error : "QR hazırlanır..."}</p>}
     </div>}
-    {url && table.is_active && <>
+    {expanded && url && table.is_active && <>
       <input aria-label={`${table.name} menyu keçidi`} className="w-full rounded-lg border border-slate-200 p-2 text-xs" readOnly value={url} onFocus={(event) => event.target.select()} />
       <div className="flex flex-wrap gap-2 text-sm">
         {ready && <a className="rounded-lg bg-emerald-600 px-3 py-2 text-white" href={qr.image} download={`masa-${table.table_number}-qr.png`}>PNG endir</a>}
@@ -47,6 +49,9 @@ function QRCard({ table, slug, origin }: { table: Table; slug: string; origin: s
 }
 
 export default function TableQRList({ tables, slug,printHref }: { tables: Table[]; slug: string;printHref?:string }) {
+  const [search,setSearch]=useState(""),[page,setPage]=useState(0);
+  const filtered=tables.filter(t=>`${t.name} ${t.table_number}`.toLocaleLowerCase("az").includes(search.trim().toLocaleLowerCase("az")));
+  const pageCount=Math.max(1,Math.ceil(filtered.length/12)),currentPage=Math.min(page,pageCount-1);
   const currentOrigin = useSyncExternalStore(subscribe, getOrigin, serverOrigin);
   const [customOrigin, setCustomOrigin] = useState(process.env.NEXT_PUBLIC_SITE_URL || "");
   const candidate = customOrigin.trim() || currentOrigin;
@@ -54,10 +59,12 @@ export default function TableQRList({ tables, slug,printHref }: { tables: Table[
   return <section className="space-y-4">
     <div className="space-y-2 rounded-2xl border border-slate-200 bg-white p-5">
       <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-semibold">Masalar və QR kodlar</h2>{printHref&&origin&&tables.some(t=>t.is_active)&&<Link href={`${printHref}?origin=${encodeURIComponent(origin)}`} className="flex min-h-12 items-center rounded-xl bg-emerald-800 px-4 py-3 text-sm font-semibold text-white">QR-ləri çap et</Link>}</div>
-      <label className="block space-y-1 text-sm"><span>QR üçün saytın yayımlanmış ünvanı</span><input className="w-full rounded-xl border border-slate-300 px-3 py-2" value={customOrigin} onChange={(event) => setCustomOrigin(event.target.value)} placeholder="https://layihenin-adi.vercel.app" type="url" maxLength={500} /></label>
+      <details open={!origin}><summary className="min-h-11 cursor-pointer py-3 text-sm font-medium text-slate-600">QR ünvanı ayarı</summary><label className="block space-y-1 text-sm"><span>QR üçün saytın yayımlanmış ünvanı</span><input className="w-full rounded-xl border border-slate-300 px-3 py-2" value={customOrigin} onChange={(event) => setCustomOrigin(event.target.value)} placeholder="https://layihenin-adi.vercel.app" type="url" maxLength={500} /></label>
       <p className="text-xs text-slate-500">Yayımlanmış saytda ünvan avtomatik seçilir. Kompüterdə işləyərkən Vercel ünvanını bura yaz.</p>
-      {!origin && <p className="text-sm text-amber-700">Telefon üçün QR yaratmağa https:// ilə başlayan Vercel və ya domen ünvanını daxil et.</p>}
+      {!origin && <p className="text-sm text-amber-700">Telefon üçün QR yaratmağa https:// ilə başlayan Vercel və ya domen ünvanını daxil et.</p>}</details>
     </div>
-    {tables.length === 0 ? <p className="rounded-2xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">Hələ masa yoxdur. İlk masanı əlavə et.</p> : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{tables.map((table) => <QRCard key={table.id} table={table} slug={slug} origin={origin} />)}</div>}
+    {!!tables.length&&<label className="block space-y-2 text-sm font-medium"><span>Masa axtar</span><input aria-label="Masa axtar" value={search} onChange={e=>{setSearch(e.target.value);setPage(0);}} placeholder="Masa adı və ya nömrəsi" className="min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-base"/></label>}
+    {tables.length === 0 ? <p className="rounded-2xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">Hələ masa yoxdur. İlk masanı əlavə et.</p> : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{filtered.slice(currentPage*12,(currentPage+1)*12).map((table) => <QRCard key={table.id} table={table} slug={slug} origin={origin} />)}</div>}
+    {!!tables.length&&<div className="flex flex-wrap items-center justify-between gap-3 text-sm"><p className="text-slate-500">{filtered.length} masa · {currentPage+1} / {pageCount}</p><div className="flex gap-2"><button type="button" disabled={currentPage===0} onClick={()=>setPage(currentPage-1)} className="min-h-11 rounded-xl border border-slate-200 bg-white px-4 disabled:opacity-40">Əvvəlki</button><button type="button" disabled={currentPage+1>=pageCount} onClick={()=>setPage(currentPage+1)} className="min-h-11 rounded-xl border border-slate-200 bg-white px-4 disabled:opacity-40">Sonrakı</button></div></div>}
   </section>;
 }
