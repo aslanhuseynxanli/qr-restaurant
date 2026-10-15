@@ -48,6 +48,7 @@ export async function createRestaurantAction(
     return { error: "Telefon və email məlumatlarını yoxla." };
   }
 
+  let restaurantId="";
   try {
     const supabase = await createClient();
 
@@ -60,7 +61,7 @@ export async function createRestaurantAction(
       return { error: "Sessiyan bitib. Yenidən daxil ol." };
     }
 
-    const { error } = await supabase.rpc("create_restaurant", {
+    const { data, error } = await supabase.rpc("create_restaurant", {
       p_name: name,
       p_slug: slug,
       p_phone: phone || null,
@@ -79,10 +80,12 @@ export async function createRestaurantAction(
                 : "Restoran yaradılmadı. Yenidən cəhd et.",
       };
     }
+    if(typeof data!=="string"||!/^[0-9a-f-]{36}$/i.test(data))return {error:"Restoran yaradılmasının cavabı alınmadı. Restoran siyahısını yoxla."};
+    restaurantId=data;
   } catch {
     return { error: "Bağlantı alınmadı. Yenidən cəhd et." };
   }
 
   revalidatePath("/admin");
-  redirect("/admin");
+  redirect(`/admin/restaurants/${restaurantId}/owners?new=1&create=1`);
 }

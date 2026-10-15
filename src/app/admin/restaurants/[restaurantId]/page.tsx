@@ -1,14 +1,10 @@
 import {notFound,redirect} from "next/navigation";
+import {restaurantWorkspace} from "@/lib/workspace";
 import {readDashboardAction} from "./dashboard-actions";
 import {ownerUUID} from "@/lib/owner-dashboard";
 import DashboardPanel from "./dashboard-panel";
-export default async function RestaurantPage({params}:{params:Promise<{restaurantId:string}>}) {
-  const {restaurantId}=await params;if(!ownerUUID.test(restaurantId))notFound();
-  const result=await readDashboardAction(restaurantId,null);
-  if(result.unauthenticated)redirect("/login");
-  if(result.denied)notFound();
-  if(!result.data)throw new Error("Sahib paneli yüklənmədi. 018_owner_dashboard_and_activity.sql yeniləməsini tətbiq et.");
-  return <main className="min-h-screen bg-slate-50 p-4 text-slate-900 sm:p-8"><div className="mx-auto max-w-6xl space-y-6">
-    <DashboardPanel key={restaurantId} restaurantId={restaurantId} initialBoard={result.data}/>
-  </div></main>;
+export default async function RestaurantPage({params,searchParams}:{params:Promise<{restaurantId:string}>;searchParams:Promise<{branch?:string}>}){
+ const {restaurantId}=await params,{workspace}=await restaurantWorkspace(restaurantId);if(workspace.super_admin)redirect(`/admin/restaurants/${restaurantId}/owners`);
+ const query=await searchParams,branch=typeof query.branch==="string"&&ownerUUID.test(query.branch)?query.branch:null,result=await readDashboardAction(restaurantId,branch);
+ if(result.unauthenticated)redirect("/login");if(result.denied)notFound();if(!result.data)throw new Error("Sahib paneli yüklənmədi.");return <main className="portal-page"><DashboardPanel key={`${restaurantId}:${branch||"all"}`} restaurantId={restaurantId} initialBoard={result.data}/></main>;
 }

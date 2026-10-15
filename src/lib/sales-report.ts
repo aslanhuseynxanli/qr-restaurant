@@ -9,10 +9,10 @@ export function validSalesFilters(value:unknown):value is SalesFilters {
   if(!value||typeof value!=="object")return false;const v=value as SalesFilters;
   return validFilters({branch_id:v.branch_id,from:v.from,to:v.to,category:null})&&v.from>="0001-01-01";
 }
-export function salesPeriod(day:string,preset:"today"|"week"|"month"):Pick<SalesFilters,"from"|"to"> {
+export function salesPeriod(day:string,preset:"today"|"week"|"month"|"last7"|"last30"):Pick<SalesFilters,"from"|"to"> {
   if(preset==="today")return {from:day,to:day};
   if(preset==="month")return {from:day.slice(0,7)+"-01",to:day};
-  const date=new Date(day+"T00:00:00Z");date.setUTCDate(date.getUTCDate()-(date.getUTCDay()+6)%7);
+  const date=new Date(day+"T00:00:00Z");date.setUTCDate(date.getUTCDate()-(preset==="last7"?6:preset==="last30"?29:(date.getUTCDay()+6)%7));
   return {from:date.toISOString().slice(0,10),to:day};
 }
 export function salesQuery(filters:SalesFilters):string {

@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Form from "next/form";
 import {useEffect,useRef,useState} from "react";
 import {accountMethods,accountLabel,accountTitle,validAccountFilters,type AccountHistory} from "@/lib/account-history";
 import {formatOwnerDate,formatOwnerTime,ownerMoney} from "@/lib/owner-dashboard";
@@ -23,7 +24,7 @@ export default function HistoryPanel({restaurantId,initialPage,warning}:{restaur
   }
   if(!page)return <div role="alert" className="space-y-4 rounded-2xl border border-red-200 bg-white p-6"><p className="text-sm text-red-800">{error}</p><Link href="/admin" className="inline-flex min-h-11 items-center text-sm font-semibold text-emerald-800">Hesabını yoxla</Link></div>;
   return <div className="space-y-5" aria-busy={pending}>
-    <form action={root} aria-label="Hesab tarixçəsi filtrləri" onSubmit={event=>{
+    <Form action={root} aria-label="Hesab tarixçəsi filtrləri" onSubmit={event=>{
       const form=new FormData(event.currentTarget);
       if(!validAccountFilters({branch_id:form.get("branch")||null,method:form.get("method")||null,from:form.get("from"),to:form.get("to"),search:form.get("q")||""})){event.preventDefault();setError("Filtrləri düzgün seç. Ən çox 366 gün göstərilə bilər.");}
     }} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
@@ -32,7 +33,7 @@ export default function HistoryPanel({restaurantId,initialPage,warning}:{restaur
         <label className="min-w-0 space-y-2 text-sm font-medium"><span>Başlanğıc tarix</span><input name="from" aria-label="Başlanğıc tarix" type="date" required defaultValue={page.filters.from} disabled={pending} className={field}/></label>
         <label className="min-w-0 space-y-2 text-sm font-medium"><span>Son tarix</span><input name="to" aria-label="Son tarix" type="date" required defaultValue={page.filters.to} disabled={pending} className={field}/></label>
       </div><div className="flex flex-wrap items-end gap-3"><label className="w-full min-w-0 space-y-2 text-sm font-medium sm:max-w-sm"><span>Masa və ya hesab nömrəsi</span><input name="q" aria-label="Masa və ya hesab nömrəsi" defaultValue={page.filters.search} placeholder="Masa adı və ya nömrə" maxLength={80} disabled={pending} className={field}/></label><button disabled={pending} className="min-h-12 rounded-xl bg-emerald-800 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">Filtrləri tətbiq et</button><Link href={root} className="inline-flex min-h-12 items-center px-3 text-sm font-medium text-emerald-800">Filtrləri təmizlə</Link></div>
-    </form>
+    </Form>
     <section aria-label="Seçilmiş hesabların yekunu" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5"><p className="text-sm leading-6 text-slate-600">{formatOwnerDate(page.filters.from)} — {formatOwnerDate(page.filters.to)} · Bakı vaxtı<br/>{page.summary.count} hesab: {page.summary.recorded_count} ödəniş qeydli, {page.summary.legacy_count} ödəniş bölgüsü qeydsiz, {page.summary.empty_count} sifarişsiz</p>
       {page.summary.amounts.map(a=><div key={a.currency} className="space-y-3 border-t border-slate-100 pt-4"><div className="grid grid-cols-1 gap-3 sm:grid-cols-3">{[["Qeyd edilmiş ödəniş",a.recorded],["Nağd",a.cash],["Kart",a.card]].map(([label,total])=><div key={label} className="min-w-0 rounded-xl bg-emerald-50 p-3"><p className="text-xs text-emerald-800">{label}</p><p className="mt-2 break-words text-lg font-bold text-emerald-900">{ownerMoney(total,a.currency)}</p></div>)}</div>{Number(a.legacy)>0&&<p className="text-xs leading-5 text-slate-500">Ödəniş bölgüsü qeydsiz əvvəlki hesabların məbləği: {ownerMoney(a.legacy,a.currency)}. Bu məbləğ yuxarıdakı kart və nağd yekunlarına daxil deyil.</p>}</div>)}
     </section>

@@ -1,4 +1,5 @@
 "use client";
+import {Volume2,VolumeX,Settings2} from "lucide-react";
 import {useCallback,useEffect,useRef,useState} from "react";
 import {newerKitchenNumber} from "@/lib/kitchen";
 
@@ -31,9 +32,5 @@ export default function KitchenSound({latest,allowed}:{latest:string|null;allowe
     }catch(e){enabled.current=false;setActive(false);setError(e instanceof Error?e.message:"Səs açıla bilmədi.");}
   }
   function disable(){enabled.current=false;setActive(false);nextChime.current=0;const old=context.current;context.current=null;void old?.close().catch(()=>{});}
-  return <section aria-label="Mətbəx bildiriş səsi" className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
-    <div className="flex flex-wrap items-center justify-between gap-2"><div className="min-w-0"><p className="text-sm font-semibold">Yeni sifariş səsi</p><p className="mt-1 text-xs text-slate-500">{!allowed?"Restoran ayarlarında bağlıdır.":active?"Səs açıqdır · Ekranı açıq saxla.":"Bu ekran üçün səsi aktiv et."}</p></div><button type="button" disabled={!allowed} aria-pressed={active&&allowed} onClick={()=>active?disable():void enable()} className="min-h-11 rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white disabled:opacity-40">{active&&allowed?"Səsi söndür":"Səsi aktiv et"}</button></div>
-    <details className="mt-2"><summary className="min-h-9 cursor-pointer py-2 text-xs font-medium text-slate-600">Səs səviyyəsi və yoxlama</summary><div className="space-y-3 pt-2"><label className="flex flex-wrap items-center gap-3 text-xs font-medium text-slate-600"><span>Səs səviyyəsi: {volume}%</span><input aria-label="Mətbəx səsinin səviyyəsi" type="range" min="0" max="100" step="10" disabled={!allowed} value={volume} onChange={e=>{const value=Number(e.target.value);volumeRef.current=value;setVolume(value);}} className="h-8 min-w-0 flex-1 accent-emerald-800"/></label>{active&&allowed&&<button type="button" onClick={()=>void enable()} className="min-h-11 rounded-xl border border-slate-200 px-4 py-2 text-sm">Səsi yoxla</button>}</div></details>
-    {error&&<p role="alert" className="mt-2 text-sm text-amber-800">{error}</p>}
-  </section>;
+  return <section aria-label="Mətbəx bildiriş səsi" className="portal-sound"><button type="button" disabled={!allowed} aria-pressed={active&&allowed} onClick={()=>active?disable():void enable()} className="portal-sound-toggle">{active&&allowed?<Volume2 size={13}/>:<VolumeX size={13}/>} {active&&allowed?"Səsi söndür":"Səsi aktiv et"}</button><details><summary aria-label="Mətbəx səsi ayarları"><Settings2 size={14}/></summary><div><p className="font-bold">Yeni sifariş səsi</p><p className="mt-2 leading-5">{!allowed?"Restoran ayarlarında səs bağlıdır.":"Yeni sifarişlər üçün ekranı açıq saxla."}</p><label className="mt-3 block">Səs səviyyəsi: {volume}%<input aria-label="Mətbəx səsinin səviyyəsi" type="range" min="0" max="100" step="10" disabled={!allowed} value={volume} onChange={e=>{const v=Number(e.target.value);volumeRef.current=v;setVolume(v);}}/></label>{active&&allowed&&<button type="button" onClick={()=>void enable()} className="portal-btn w-full">Səsi yoxla</button>}</div></details>{error&&<p role="alert" className="text-xs text-amber-700">{error}</p>}</section>;
 }

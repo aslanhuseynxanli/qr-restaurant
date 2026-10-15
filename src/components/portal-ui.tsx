@@ -1,0 +1,9 @@
+import type {ReactNode} from "react";
+import {ArrowUpRight,Inbox} from "lucide-react";
+export type PortalTone="teal"|"blue"|"amber"|"purple"|"red"|"neutral";
+export function PageHeading({eyebrow,title,description,actions}:{eyebrow?:string;title:string;description?:ReactNode;actions?:ReactNode}){return <header className="portal-page-heading"><div className="min-w-0">{eyebrow&&<p className="portal-eyebrow">{eyebrow}</p>}<h1>{title}</h1>{description&&<p className="portal-description">{description}</p>}</div>{actions&&<div className="portal-heading-actions">{actions}</div>}</header>;}
+export function StatCard({label,value,note,icon,tone="teal",children}:{label:string;value:ReactNode;note?:ReactNode;icon?:ReactNode;tone?:PortalTone;children?:ReactNode}){return <article aria-label={label} className={`portal-stat portal-tone-${tone}`}><div className="portal-stat-top"><span>{label}</span>{icon&&<span className="portal-stat-icon">{icon}</span>}</div><div className="portal-stat-value">{value}</div>{note&&<p className="portal-stat-note">{note}</p>}{children}</article>;}
+export function Badge({children,tone="neutral",dot=false}:{children:ReactNode;tone?:PortalTone;dot?:boolean}){return <span className={`portal-badge portal-tone-${tone}`}>{dot&&<span className="portal-dot"/>}{children}</span>;}
+export function EmptyState({title,description,action,icon}:{title:string;description?:string;action?:ReactNode;icon?:ReactNode}){return <div className="portal-empty"><span className="portal-empty-icon">{icon||<Inbox size={26}/>}</span><h3>{title}</h3>{description&&<p>{description}</p>}{action}</div>;}
+export function SectionHeading({title,description,action}:{title:string;description?:string;action?:ReactNode}){return <div className="portal-section-heading"><div><h2>{title}</h2>{description&&<p>{description}</p>}</div>{action}</div>;}
+export function TextArrow(){return <ArrowUpRight size={16} aria-hidden="true"/>;}

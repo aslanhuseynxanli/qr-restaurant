@@ -16,9 +16,9 @@ export default async function AccountsPage({params,searchParams}:{params:Promise
   const result=await readOwnerRPC<AccountHistory>("owner_account_history",{p_restaurant_id:restaurantId,p_branch_id:branch,p_method:method,p_from:from,p_to:to,p_search:search,p_before_at:null,p_before_id:null,p_limit:30});
   if(result.unauthenticated)redirect("/login");if(result.denied)notFound();
   if(!result.data)throw new Error("Hesab tarixçəsi yüklənmədi. 019_payments_and_account_history.sql yeniləməsini tətbiq et.");
-  return <main className="min-h-screen bg-slate-50 p-4 text-slate-900 sm:p-8"><div className="mx-auto max-w-6xl space-y-6">
+  return <main className="portal-page space-y-6">
     <Link href={`/admin/restaurants/${restaurantId}`} className="inline-flex min-h-11 items-center text-sm font-medium text-emerald-700">← Ümumi baxışa qayıt</Link>
     <header><h1 className="text-2xl font-bold">Hesab tarixçəsi</h1><p className="mt-2 break-words text-sm leading-6 text-slate-500">{result.data.restaurant_name} · Bağlanmış masa hesabları və alınmış ödənişlər</p></header>
     <HistoryPanel key={`${restaurantId}:${JSON.stringify(result.data.filters)}`} restaurantId={restaurantId} initialPage={result.data} warning={warning}/>
-  </div></main>;
+  </main>;
 }

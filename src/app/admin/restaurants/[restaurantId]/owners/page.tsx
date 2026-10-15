@@ -1,20 +1,12 @@
 import Link from "next/link";
-import {notFound,redirect} from "next/navigation";
-import {createClient} from "@/lib/supabase/server";
-import {ownerUUID,type OwnerManagementBoard} from "@/lib/owner-management";
+import {notFound} from "next/navigation";
+import {ArrowLeft} from "lucide-react";
+import {PageHeading} from "@/components/portal-ui";
+import {restaurantWorkspace} from "@/lib/workspace";
+import type {OwnerManagementBoard} from "@/lib/owner-management";
 import OwnerPanel from "./panel";
-
-export default async function OwnersPage({params}:{params:Promise<{restaurantId:string}>}) {
-  const {restaurantId}=await params;if(!ownerUUID.test(restaurantId))notFound();
-  const supabase=await createClient(),{data:auth,error:authError}=await supabase.auth.getUser();
-  if(authError||!auth.user)redirect("/login");
-  const {data,error}=await supabase.rpc("owner_management_board",{p_restaurant_id:restaurantId});
-  if(error?.code==="42501")notFound();
-  if(error||!data)throw new Error("Sahib siyahısı yüklənmədi. 017_owner_management.sql yeniləməsini tətbiq et.");
-  const board=data as OwnerManagementBoard;
-  return <main className="min-h-screen bg-slate-50 p-4 text-slate-900 sm:p-8"><div className="mx-auto max-w-6xl space-y-6">
-    <Link href="/admin" className="text-sm font-medium text-emerald-700">← Restoranlara qayıt</Link>
-    <header><h1 className="text-2xl font-semibold">Restoran sahibinin hesabı</h1><p className="mt-2 text-sm leading-6 text-slate-500">{board.restaurant_name} · Sahib bu restoranın filiallarını, masalarını, menyusunu və işçilərini idarə edir.</p></header>
-    <OwnerPanel restaurantId={restaurantId} board={board}/>
-  </div></main>;
+export default async function OwnersPage({params,searchParams}:{params:Promise<{restaurantId:string}>;searchParams:Promise<{new?:string;create?:string}>}){
+ const {restaurantId}=await params,{workspace,supabase}=await restaurantWorkspace(restaurantId);if(!workspace.super_admin)notFound();
+ const {data,error}=await supabase.rpc("owner_management_board",{p_restaurant_id:restaurantId});if(error?.code==="42501")notFound();if(error||!data)throw new Error("Sahib siyahısı yüklənmədi.");const board=data as OwnerManagementBoard,query=await searchParams;
+ return <main className="portal-page"><PageHeading eyebrow="Platforma · Sahib hesabları" title={board.restaurant_name} description="Restoran sahibinin hesabını yarat və bu restorana girişini idarə et." actions={<Link href="/admin?view=owners" className="portal-btn"><ArrowLeft size={14}/>Restoranlara qayıt</Link>}/>{query.new==="1"&&<p role="status" className="portal-notice mb-6">Restoran yaradıldı. İndi sahib hesabını əlavə et. Sahib öz panelindən filial, masa, menyu və işçi hesablarını hazırlayacaq.</p>}<OwnerPanel restaurantId={restaurantId} board={board}/></main>;
 }
