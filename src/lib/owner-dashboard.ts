@@ -6,6 +6,20 @@ export type OwnerCounts={today_orders:number;cancelled_orders:number;new_orders:
 export type OwnerBranch=OwnerCounts&{id:string;name:string;address:string|null;is_active:boolean;accepting_orders:boolean;allowed_radius_meters:number};
 export type OwnerEvent={id:string;created_at:string;action:string;entity_type:string;category:ActivityCategory;actor_name:string;actor_role:string|null;branch_name:string|null;name:string|null;table_name:string|null;order_number:string|null;currency:string|null;details:Record<string,unknown>};
 export type OwnerDashboard={restaurant:{id:string;name:string;slug:string;can_manage:boolean};day:string;timezone:string;refreshed_at:string;branch_id:string|null;totals:OwnerCounts;closed_amounts:{currency:string;total:string}[];branches:OwnerBranch[];recent_activity:OwnerEvent[]};
+const dashboardCountKeys=["today_orders","cancelled_orders","new_orders","working_orders","open_tables","pending_calls","pending_bills","closed_tables","table_count","staff_count"] as const;
+function isRecord(value:unknown):value is Record<string,unknown>{return value!==null&&typeof value==="object"&&!Array.isArray(value);}
+function hasDashboardCounts(value:unknown){return isRecord(value)&&dashboardCountKeys.every(key=>typeof value[key]==="number"&&Number.isFinite(value[key])&&value[key]>=0);}
+// Cavab natamamdırsa onu boş/0 göstəricilər kimi təqdim etmə; panel yenidən yoxlana bilsin.
+export function isOwnerDashboard(value:unknown):value is OwnerDashboard {
+  if(!isRecord(value)||!isRecord(value.restaurant)||!hasDashboardCounts(value.totals))return false;
+  const restaurant=value.restaurant;
+  return typeof restaurant.id==="string"&&typeof restaurant.name==="string"&&typeof restaurant.slug==="string"&&typeof restaurant.can_manage==="boolean"
+    &&validDate(value.day)&&typeof value.refreshed_at==="string"&&Number.isFinite(Date.parse(value.refreshed_at))
+    &&(value.branch_id===null||typeof value.branch_id==="string"&&ownerUUID.test(value.branch_id))
+    &&Array.isArray(value.branches)&&value.branches.every(b=>isRecord(b)&&hasDashboardCounts(b)&&typeof b.id==="string"&&typeof b.name==="string"&&typeof b.is_active==="boolean"&&typeof b.accepting_orders==="boolean")
+    &&Array.isArray(value.closed_amounts)&&value.closed_amounts.every(a=>isRecord(a)&&typeof a.currency==="string"&&typeof a.total==="string")
+    &&Array.isArray(value.recent_activity)&&value.recent_activity.every(e=>isRecord(e)&&typeof e.id==="string"&&typeof e.action==="string"&&typeof e.created_at==="string"&&Number.isFinite(Date.parse(e.created_at))&&isRecord(e.details));
+}
 export type ActivityFilters={branch_id:string|null;category:ActivityCategory|null;from:string;to:string};
 export type ActivityCursor={at:string;id:string};
 export type OwnerActivity={restaurant_name:string;branches:{id:string;name:string;is_active:boolean}[];filters:ActivityFilters;events:OwnerEvent[];next_cursor:ActivityCursor|null};

@@ -22,3 +22,19 @@
 .portal-live-search-tools{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:10px}
 @media(max-width:767px){.portal-live-stats{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.portal-live-stats .portal-stat{padding:11px 9px;border-radius:11px}.portal-live-stats .portal-stat-top{font-size:9px;line-height:1.4;min-height:26px;overflow-wrap:anywhere}.portal-live-stats .portal-stat-icon,.portal-live-stats .portal-stat-note{display:none}.portal-live-stats .portal-stat-value{font-size:22px;margin-top:5px}.portal-live-panel .portal-live-tabs{flex-wrap:nowrap;overflow-x:auto;padding-bottom:5px;scrollbar-width:thin}.portal-live-panel .portal-live-tabs a{flex-shrink:0;white-space:nowrap}.portal-live-panel .portal-help{font-size:9px}.portal-live-search-tools .portal-btn{font-size:10px;padding-left:10px;padding-right:10px}}
 @media(max-width:767px){.portal-sound details[open]{flex-basis:100%}.portal-sound details>div{position:static;width:min(280px,calc(100vw - 40px));margin-top:8px;max-width:100%;box-shadow:none}.portal-sound details[open]>summary{width:fit-content}}
+
+/* Əməliyyat pəncərəsində məhsul adı və say sahəsi bir-birini sıxmamalıdır. */
+.portal .portal-operation-dialog{width:min(36rem,calc(100% - 2rem));max-width:none;max-height:90dvh;padding:24px}
+.portal .portal-operation-dialog form,.portal .portal-operation-dialog fieldset{min-width:0}
+.portal .portal-operation-heading{display:block;padding:0;border:0}
+.portal .portal-operation-dialog .portal-help{font-size:13px;line-height:1.65;color:#526579}
+.portal .portal-operation-dialog .portal-field{font-size:13px;color:#42566b}
+.portal .portal-operation-dialog .portal-input{font-size:16px;min-height:46px}
+.portal .portal-operation-dialog .portal-btn{font-size:13px;min-height:46px}
+.portal .portal-adjustment-item{display:grid;grid-template-columns:minmax(0,1fr) 108px;align-items:center;gap:16px;min-width:0;padding:14px;border:1px solid #e5eaf0;border-radius:12px;background:#f7f9fb}
+.portal .portal-adjustment-copy{display:block;min-width:0;font-size:14px;line-height:1.55;color:#263649;overflow-wrap:anywhere}
+.portal .portal-adjustment-copy strong{display:block;font-weight:650}
+.portal .portal-adjustment-copy small{display:block;margin-top:4px;font-size:12px;color:#526579}
+.portal .portal-adjustment-quantity{display:grid;min-width:0;gap:5px;font-size:12px;font-weight:600;color:#42566b}
+.portal .portal-adjustment-quantity .portal-input{width:100%;padding:10px 8px;font-weight:600}
+@media(max-width:479px){.portal .portal-operation-dialog{width:calc(100% - 1.25rem);padding:18px}.portal .portal-adjustment-item{grid-template-columns:minmax(0,1fr) 96px;gap:10px;padding:12px}.portal .portal-operation-dialog .portal-btn{font-size:12px}}
