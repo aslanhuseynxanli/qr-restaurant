@@ -49,7 +49,7 @@ export function ownerMoney(value:unknown,currency="AZN") {
 }
 const statuses:Record<string,string>={NEW:"Yeni",ACCEPTED:"Qəbul edildi",PREPARING:"Hazırlanır",READY:"Hazırdır",SERVED:"Servis edildi",COMPLETED:"Tamamlandı",CANCELLED:"Ləğv edildi",SEEN:"Görüldü",DONE:"Tamamlandı"};
 export function ownerEventTitle(event:OwnerEvent) {
-  const titles:Record<string,string>={"platform.restaurant_updated":"Restoranın platforma statusu dəyişdi","table.bulk_created":"Masalar və QR-lər toplu yaradıldı","qr.manual_order_created":"Sistemə masa sifarişi əlavə edildi","qr.staff_bill_requested":"İşçi hesab hazırladı","restaurant.created":"Restoran yaradıldı","branch.created":"Filial yaradıldı","branch.location_updated":"Filialın məkanı və radiusu yeniləndi","table.created":"Masa və QR yaradıldı","category.created":"Kateqoriya əlavə edildi","category.updated":"Kateqoriya yeniləndi","product.created":"Məhsul əlavə edildi","product.updated":"Məhsul yeniləndi","branch_product.updated":"Filialın məhsul ayarları yeniləndi","menu.imported":"Menyu import edildi","staff.created":"İşçi hesabı yaradıldı","staff.updated":"İşçinin girişi və filialı yeniləndi","owner.created":"Sahib hesabı yaradıldı","owner.updated":"Sahib hesabının girişi yeniləndi","qr.order_created":"Sifariş verildi","order.created":"Sifariş verildi","qr.bill_payment_selected":"Ödəniş üsulu seçildi"};
+  const titles:Record<string,string>={"qr.items_adjusted":"Sifarişin məhsulları düzəldildi","qr.table_transferred":"Masa hesabı köçürüldü","qr.bill_adjusted":"Endirim və servis haqqı yeniləndi","qr.partial_paid":"Hesabın bir hissəsi ödənildi","qr.account_paid":"Ödəniş tamamlandı və masa bağlandı","platform.restaurant_updated":"Restoranın platforma statusu dəyişdi","table.bulk_created":"Masalar və QR-lər toplu yaradıldı","qr.manual_order_created":"Sistemə masa sifarişi əlavə edildi","qr.staff_bill_requested":"İşçi hesab hazırladı","restaurant.created":"Restoran yaradıldı","branch.created":"Filial yaradıldı","branch.location_updated":"Filialın məkanı və radiusu yeniləndi","table.created":"Masa və QR yaradıldı","category.created":"Kateqoriya əlavə edildi","category.updated":"Kateqoriya yeniləndi","product.created":"Məhsul əlavə edildi","product.updated":"Məhsul yeniləndi","branch_product.updated":"Filialın məhsul ayarları yeniləndi","menu.imported":"Menyu import edildi","staff.created":"İşçi hesabı yaradıldı","staff.updated":"İşçinin girişi və filialı yeniləndi","owner.created":"Sahib hesabı yaradıldı","owner.updated":"Sahib hesabının girişi yeniləndi","qr.order_created":"Sifariş verildi","order.created":"Sifariş verildi","qr.bill_payment_selected":"Ödəniş üsulu seçildi"};
   if(event.action==="qr.service_requested")return event.details.kind==="BILL"?"Hesab istənildi":"Ofisiant çağırıldı";
   if(event.action==="qr.staff_action"){
     if(event.entity_type==="qr_close")return "Ödəniş təsdiqləndi və masa bağlandı";
@@ -67,6 +67,11 @@ export function ownerEventDetails(event:OwnerEvent) {
   if(event.name)result.push(event.name);
   if(event.order_number)result.push(`Sifariş #${event.order_number}`);
   if(event.table_name)result.push(event.table_name);
+  if(typeof d.reason==="string")result.push(`Səbəb: ${d.reason}`);
+  if(typeof d.from_table==="string"&&typeof d.to_table==="string")result.push(`${d.from_table} → ${d.to_table}`);
+  if(typeof d.discount==="string")result.push(`Endirim: ${ownerMoney(d.discount,event.currency||"")}`);
+  if(typeof d.service_percent==="string")result.push(`Servis: ${d.service_percent}%`);
+  if(typeof d.label==="string"&&d.label)result.push(d.label);
   if(d.total!==undefined)result.push(ownerMoney(d.total,event.currency||""));
   if(d.base_price!==undefined)result.push(`Qiymət: ${ownerMoney(d.base_price,event.currency||"")}`);
   if(d.price_override!==undefined)result.push(`Filial qiyməti: ${ownerMoney(d.price_override,event.currency||"")}`);

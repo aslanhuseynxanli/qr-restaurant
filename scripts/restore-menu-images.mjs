@@ -34,9 +34,9 @@ export async function validateImageDestination(directory, target) {
 }
 async function main() {
   const [directory, flag, target] = process.argv.slice(2), key = process.env.BACKUP_RESTORE_SECRET_KEY;
-  if (!directory || flag !== '--test-project' || !target || process.argv.length !== 5 || !key) throw Error('EHTIYAT_NUSXE.md qaydasına görə test server açarını daxil et.');
+  if (!directory || flag !== '--test-project' || !target || process.argv.length !== 5 || !key) throw Error('EHTIYAT_NUSXE_028.md qaydasına görə test server açarını daxil et.');
   const origin = await validateImageDestination(directory, target);
   const client = createClient(origin, key, { auth: { persistSession: false, autoRefreshToken: false }, global: { fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(30000) }) } });
-  console.log('Test layihəsinə ' + await restoreImages(client, directory) + ' şəkil bərpa edildi. EHTIYAT_NUSXE.md üzrə login, sifariş və şəkilləri yoxla.');
+  console.log('Test layihəsinə ' + await restoreImages(client, directory) + ' şəkil bərpa edildi. EHTIYAT_NUSXE_028.md üzrə login, sifariş və şəkilləri yoxla.');
 }
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch(() => { console.error('Şəkillərin bərpası tamamlanmadı. COMPLETE surət və mənbədən fərqli test layihəsi/açarı tələb olunur. Qayda EHTIYAT_NUSXE.md daxilindədir.'); process.exitCode = 1; });
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch(() => { console.error('Şəkillərin bərpası tamamlanmadı. COMPLETE surət və mənbədən fərqli test layihəsi/açarı tələb olunur. Qayda EHTIYAT_NUSXE_028.md daxilindədir.'); process.exitCode = 1; });

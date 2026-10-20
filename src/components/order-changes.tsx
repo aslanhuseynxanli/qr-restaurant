@@ -1,0 +1,3 @@
+import type {ItemChange} from "@/lib/daily-operations";
+import {clockTime} from "@/lib/qr-orders";
+export default function OrderChanges({changes}:{changes?:ItemChange[]}){if(!changes?.length)return null;return <details className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950"><summary className="cursor-pointer py-1 font-bold">Sifarişdə dəyişiklik var ({changes.length})</summary><ul className="mt-2 space-y-2">{changes.map((c,i)=><li key={i} className="break-words"><strong>{c.name}: {c.old_quantity} → {c.quantity===0?"Ləğv edildi":c.quantity}</strong><p className="mt-1">{c.reason} · {clockTime(c.at)}</p></li>)}</ul></details>;}

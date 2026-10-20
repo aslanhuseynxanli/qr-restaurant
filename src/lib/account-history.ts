@@ -1,16 +1,17 @@
+import type {AccountTotals,ItemChange} from "./daily-operations";
 import {ownerUUID,validFilters,type ActivityCursor} from "./owner-dashboard";
 import {paymentLabels,type PaymentMethod,type OrderStatus} from "./qr-orders";
 export const accountMethods={...paymentLabels,LEGACY:"Ödəniş bölgüsü qeyd edilməyib",EMPTY:"Sifarişsiz bağlanıb"};
 export type AccountMethod=keyof typeof accountMethods;
 export type AccountFilters={branch_id:string|null;method:AccountMethod|null;from:string;to:string;search:string};
-export type ClosedAccount={id:string;branch_name:string;table_name:string;table_number:number;opened_at:string;closed_at:string;kind:"PAID"|"LEGACY"|"EMPTY";
+export type ClosedAccount={id:string;branch_id:string;totals?:AccountTotals;branch_name:string;table_name:string;table_number:number;opened_at:string;closed_at:string;kind:"PAID"|"LEGACY"|"EMPTY";
   order_count:number;item_count:number;total:string;currency:string;
   payment:null|{number:string;method:PaymentMethod;cash:string;card:string;actor_name:string;actor_role:string;paid_at:string}};
 export type AccountHistory={restaurant_name:string;branches:{id:string;name:string;is_active:boolean}[];filters:AccountFilters;
   summary:{count:number;recorded_count:number;legacy_count:number;empty_count:number;amounts:{currency:string;recorded:string;cash:string;card:string;legacy:string}[]};
   accounts:ClosedAccount[];next_cursor:ActivityCursor|null};
 export type AccountDetail={restaurant_name:string;account:ClosedAccount;orders:{id:string;number:string;status:OrderStatus;total:string;currency:string;note:string|null;created_at:string;
-  items:{name:string;price:string;quantity:number;total:string}[];events:{status:OrderStatus;at:string;actor_name:string}[]}[]};
+  changes?:ItemChange[];items:{original_quantity?:number;name:string;price:string;quantity:number;total:string}[];events:{status:OrderStatus;at:string;actor_name:string}[]}[]};
 export function validAccountFilters(value:unknown):value is AccountFilters {
   if(!value||typeof value!=="object")return false;
   const v=value as AccountFilters;

@@ -1,3 +1,4 @@
+import { verifyBackup } from './verify-backup.mjs';
 import { createClient } from '@supabase/supabase-js';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile, copyFile, chmod } from 'node:fs/promises';
@@ -46,7 +47,7 @@ async function main() {
   const { url, ref } = projectUrl(process.env.NEXT_PUBLIC_SUPABASE_URL || '');
   const key = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!key) throw Error('Layihənin server açarı .env.local daxilində yoxdur.');
-  if ((await readFile('supabase/.temp/project-ref', 'utf8')).trim() !== ref) throw Error('CLI başqa layihəyə bağlıdır. EHTIYAT_NUSXE.md qaydasına görə doğru layihəni link et.');
+  if ((await readFile('supabase/.temp/project-ref', 'utf8')).trim() !== ref) throw Error('CLI başqa layihəyə bağlıdır. EHTIYAT_NUSXE_028.md qaydasına görə doğru layihəni link et.');
   execFileSync('supabase', ['--version'], { stdio: 'ignore' });
   const directory = path.join(os.homedir(), 'qr-restaurant-backups', 'database', ref + '-' + new Date().toISOString().replace(/[:.]/g, '-'));
   await mkdir(directory, { recursive: true, mode: 0o700 });
@@ -72,7 +73,10 @@ async function main() {
   const client = createClient(url.origin, key, { auth: { persistSession: false, autoRefreshToken: false }, global: { fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(30000) }) } });
   manifest.images = await backupImages(client, directory);
   manifest.status = 'COMPLETE'; manifest.completed_at = new Date().toISOString(); await save();
+  const checked=await verifyBackup(directory);
+  const report=await client.rpc('platform_backup_record',{p_success:true,p_files:checked.files,p_images:checked.images,p_total_bytes:checked.bytes,p_manifest_hash:sha(Buffer.from(await readFile(path.join(directory,'manifest.json'))))});
+  if(report.error)console.warn('Nüsxə hazırdır, amma admin panelinə nəticə yazılmadı. 028 SQL-i yoxla.');
   console.log('Tamamlandı: SQL və ' + manifest.images.length + ' menyu şəkli. Manifest: COMPLETE.');
-  console.log('Qovluğu təhlükəsiz ikinci yerdə saxla. Bərpa sınağı EHTIYAT_NUSXE.md daxilindədir.');
+  console.log('Qovluğu təhlükəsiz ikinci yerdə saxla. Bərpa sınağı EHTIYAT_NUSXE_028.md daxilindədir.');
 }
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch(() => { console.error('Ehtiyat nüsxə tamamlanmadı. INCOMPLETE surət bərpa üçün yararlı sayılmır. CLI bağlantısı, Docker və .env.local ayarlarını EHTIYAT_NUSXE.md üzrə yoxla.'); process.exitCode = 1; });
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch(async() => { try{const {url}=projectUrl(process.env.NEXT_PUBLIC_SUPABASE_URL||'');const key=process.env.SUPABASE_SECRET_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY;if(key)await createClient(url.origin,key,{auth:{persistSession:false,autoRefreshToken:false},global:{fetch:(input,init)=>fetch(input,{...init,signal:AbortSignal.timeout(10000)})}}).rpc('platform_backup_record',{p_success:false,p_files:0,p_images:0,p_total_bytes:0,p_manifest_hash:'0'.repeat(64)});}catch{}console.error('Ehtiyat nüsxə tamamlanmadı. INCOMPLETE surət bərpa üçün yararlı sayılmır. CLI bağlantısı, Docker və .env.local ayarlarını EHTIYAT_NUSXE_028.md üzrə yoxla.'); process.exitCode = 1; });

@@ -1,20 +1,23 @@
+import type {AccountTotals,ItemChange,PaymentPart} from "./daily-operations";
 export type OrderStatus = "NEW" | "ACCEPTED" | "PREPARING" | "READY" | "SERVED" | "CANCELLED";
 export const orderLabels: Record<OrderStatus,string> = {NEW:"Yeni",ACCEPTED:"Qəbul edildi",PREPARING:"Hazırlanır",READY:"Hazırdır",SERVED:"Servis edildi",CANCELLED:"Ləğv edildi"};
 export const orderSteps: OrderStatus[] = ["NEW","ACCEPTED","PREPARING","READY","SERVED"];
 export const nextStatus: Partial<Record<OrderStatus,OrderStatus>> = {NEW:"ACCEPTED",ACCEPTED:"PREPARING",PREPARING:"READY",READY:"SERVED"};
-export type QROrder = {id:string;request_id:string;number:number;status:OrderStatus;version:number;total:number;currency:string;note:string|null;created_at:string;updated_at:string;items:{name:string;price:number;quantity:number;total:number}[];events:{status:OrderStatus;at:string}[]};
+export type QROrder = {id:string;request_id:string;number:number;status:OrderStatus;version:number;total:number;currency:string;note:string|null;created_at:string;updated_at:string;items:{id:string;original_quantity:number;name:string;price:number;quantity:number;total:number}[];changes?:ItemChange[];events:{status:OrderStatus;at:string}[]};
 export type PaymentMethod = "CASH" | "CARD" | "MIXED";
 export const paymentLabels: Record<PaymentMethod,string> = {CASH:"Nağd",CARD:"Kart",MIXED:"Kart + nağd"};
 export function isPaymentMethod(value:unknown): value is PaymentMethod { return value==="CASH"||value==="CARD"||value==="MIXED"; }
 export type QRService = {id:string;kind:"WAITER"|"BILL";payment_method?:PaymentMethod|null;status:"NEW"|"SEEN"|"DONE";version?:number;created_at:string;updated_at?:string};
-export type VisitView = {session:{id:string;status:"OPEN"|"BILL_REQUESTED"|"CLOSED";table_name:string};orders:QROrder[];services:QRService[]};
-export type StaffSession = VisitView["session"] & {version:number;table_number:number;opened_at:string;payment_total?:string;total:number;currency:string;orders:QROrder[];services:QRService[]};
-export type StaffBoard = {sessions:StaffSession[];sound_enabled?:boolean;can_prepare?:boolean;viewer_role?:"OWNER"|"WAITER"};
+export type VisitView = {totals?:AccountTotals;session:{id:string;status:"OPEN"|"BILL_REQUESTED"|"CLOSED";table_name:string};orders:QROrder[];services:QRService[]};
+export type StaffSession = VisitView["session"] & {version:number;table_id:string;table_number:number;opened_at:string;totals?:AccountTotals;parts?:PaymentPart[];payment_total?:string;total:number;currency:string;orders:QROrder[];services:QRService[]};
+export type StaffBoard = {tables?:{id:string;name:string;number:number;busy:boolean}[];sessions:StaffSession[];sound_enabled?:boolean;can_prepare?:boolean;viewer_role?:"OWNER"|"WAITER"};
 export type CartLine = {id:string;name:string;quantity:number;price:number};
 export function money(value:number,currency="AZN") { return `${Number(value).toFixed(2)} ${currency}`; }
 export function clockTime(value:string) { return new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Baku",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).format(new Date(value)); }
 export function orderError(code?:string) {
   const errors:Record<string,string> = {
+    ADJUSTMENT_REQUIRED:"Ləğv səbəbini yazmaq üçün paneli yenilə və Məhsulları düzəlt / ləğv et pəncərəsini aç.",
+    PAYMENTS_STARTED:"Bu hesaba ödəniş daxil edilib. Əlavə sifariş və hesab düzəlişi bağlıdır.",
     LOCATION_REQUIRED:"Restoranda olduğunu təsdiqləmək üçün mövqe icazəsini ver və yenidən cəhd et.",
     ORDERS_PAUSED:"Filial hazırda sifariş qəbul etmir.",TABLE_CLOSED:"Masa üçün hesab istənilib və ya hesab bağlanıb. Əlavə sifariş üçün ofisianta müraciət et.",
     VISIT_EXPIRED:"Ziyarətin müddəti bitib. Mövqeni təsdiqləyib yenidən başla.",

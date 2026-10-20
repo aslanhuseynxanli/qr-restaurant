@@ -1,0 +1,60 @@
+"use client";
+import {useEffect,useRef,useState} from "react";
+import {createClient} from "@/lib/supabase/client";
+import {amountCents,centsAmount,exactMoney} from "@/lib/account-payments";
+import {adjustedTotal,dailyErrors,splitAmount} from "@/lib/daily-operations";
+import {paymentLabels,type QROrder,type StaffBoard,type StaffSession,type PaymentMethod} from "@/lib/qr-orders";
+
+type Kind="items"|"move"|"bill"|"part";
+type Attempt={rpc:string;args:Record<string,unknown>;preview:string[]};
+const names={items:"qr_adjust_order",move:"qr_transfer_table",bill:"qr_adjust_bill",part:"qr_pay_part"};
+const titles={items:"Sifarişdə məhsulları düzəlt",move:"Başqa masaya köçür",bill:"Endirim və servis haqqı",part:"Hissə-hissə ödəniş"};
+const input="portal-input w-full";
+export default function OperationDialog({kind,restaurantId,branchId,userId,session,order,board,onClose,onSuccess}:{kind:Kind;restaurantId:string;branchId:string;userId:string;session:StaffSession;order?:QROrder;board:StaffBoard;onClose:()=>void;onSuccess:(board:StaffBoard,closed:boolean)=>void}){
+ const dialog=useRef<HTMLDialogElement>(null),busy=useRef(false);
+ const key=`qr-operation:${userId}:${restaurantId}:${branchId}:${session.id}:${kind}:${order?.id||""}`;
+ const [initialAttempt]=useState<Attempt|null>(()=>{try{const text=sessionStorage.getItem(key);if(text&&text.length<25000){const a=JSON.parse(text) as Attempt;if(a.rpc===names[kind]&&a.args?.p_restaurant_id===restaurantId&&a.args?.p_branch_id===branchId&&Array.isArray(a.preview)&&a.preview.every(v=>typeof v==="string"))return a;}}catch{}return null;});
+ const stored=useRef<Attempt|null>(initialAttempt);
+ const [reason,setReason]=useState(""),[target,setTarget]=useState(""),[quantities,setQuantities]=useState(()=>Object.fromEntries((order?.items||[]).map(i=>[i.id,i.quantity])));
+ const [discount,setDiscount]=useState(session.totals?.discount||"0.00"),[rate,setRate]=useState(session.totals?.service_percent||"0.00");
+ const [people,setPeople]=useState(2),[part,setPart]=useState(()=>splitAmount(session.payment_total||"0.00",2)[0]||""),[label,setLabel]=useState(""),[method,setMethod]=useState<PaymentMethod>("CASH"),[cash,setCash]=useState(""),[card,setCard]=useState("");
+ const [pending,setPending]=useState(false),[uncertain,setUncertain]=useState(Boolean(initialAttempt)),[error,setError]=useState(""),[preview,setPreview]=useState<string[]>(initialAttempt?.preview||[]);
+ const remaining=session.payment_total||"0.00",splits=splitAmount(remaining,people),locked=pending||uncertain;
+ useEffect(()=>{const d=dialog.current;d?.showModal();return()=>{d?.close();};},[]);
+ function persist(a:Attempt|null){stored.current=a;try{if(a)sessionStorage.setItem(key,JSON.stringify(a));else sessionStorage.removeItem(key);}catch{}}
+ async function submit(e:React.FormEvent){e.preventDefault();if(busy.current)return;let attempt=stored.current;
+  if(!attempt){
+   const common={p_restaurant_id:restaurantId,p_branch_id:branchId,p_request_id:crypto.randomUUID()};let args:Record<string,unknown>={};const description=[session.table_name];
+   if(kind==="items"){
+    if(!order||reason.trim().length<3||!order.items.some(i=>quantities[i.id]!==i.quantity)){setError(dailyErrors.INVALID_ADJUSTMENT);return;}
+    args={...common,p_order_id:order.id,p_version:order.version,p_changes:order.items.map(i=>({id:i.id,quantity:quantities[i.id]})),p_reason:reason.trim()};description.push(`Sifariş #${order.number}`,reason.trim(),...order.items.filter(i=>quantities[i.id]!==i.quantity).map(i=>`${i.name}: ${i.quantity} → ${quantities[i.id]}`));
+   }else if(kind==="move"){
+    const table=board.tables?.find(t=>t.id===target&&!t.busy);if(!table){setError(dailyErrors.INVALID_TABLE);return;}args={...common,p_session_id:session.id,p_version:session.version,p_target_table:target};description.push(`Yeni masa: ${table.name}`);
+   }else if(kind==="bill"){
+    const total=adjustedTotal(session.totals?.subtotal||"0.00",discount,rate);if(!total||reason.trim().length<3){setError(dailyErrors.INVALID_ADJUSTMENT);return;}
+    args={...common,p_session_id:session.id,p_version:session.version,p_discount:centsAmount(amountCents(discount)!),p_service_percent:centsAmount(amountCents(rate)!),p_reason:reason.trim()};description.push(`Endirim: ${discount} ${session.currency}`,`Servis: ${rate}%`,`Yeni yekun: ${total} ${session.currency}`,reason.trim());
+   }else{
+    const n=amountCents(part),left=amountCents(remaining);const c=method==="CARD"?BigInt(0):method==="CASH"?n:amountCents(cash),k=method==="CASH"?BigInt(0):method==="CARD"?n:amountCents(card);
+    if(n===null||left===null||n<=BigInt(0)||n>left||c===null||k===null||c+k!==n||(method==="MIXED"&&(c===BigInt(0)||k===BigInt(0)))){setError(dailyErrors.PAYMENT_SUM_MISMATCH);return;}
+    args={...common,p_session_id:session.id,p_version:session.version,p_payment_method:method,p_cash:centsAmount(c),p_card:centsAmount(k),p_expected_total:remaining,p_currency:session.currency,p_label:label.trim()};description.push(`${label.trim()||"Ödəniş hissəsi"}: ${exactMoney(centsAmount(n),session.currency)}`,`${paymentLabels[method]} · Nağd ${centsAmount(c)} · Kart ${centsAmount(k)}`);
+   }
+   attempt={rpc:names[kind],args,preview:description};persist(attempt);setPreview(description);
+  }
+  busy.current=true;setPending(true);setError("");const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);
+  try{
+   const {data,error}=await createClient().rpc(attempt.rpc,attempt.args).abortSignal(controller.signal);
+   if(error){if(error.code==="P0001"||error.code==="42501"||error.code==="23505"){persist(null);setUncertain(false);setError(dailyErrors[error.code==="42501"?"FORBIDDEN":error.message]||"Əməliyyat tətbiq olunmadı. Pəncərəni bağla və paneli yenilə.");return;}throw new Error();}
+   if(!data)throw new Error();persist(null);setUncertain(false);onSuccess(kind==="part"?data.board as StaffBoard:data as StaffBoard,Boolean(kind==="part"&&data.closed));
+  }catch{setUncertain(true);setError("Cavab alınmadı. Eyni əməliyyatı yenidən yoxla. Daxil etdiklərin saxlanıb; ikinci qeyd yaranmayacaq.");}
+  finally{clearTimeout(timer);busy.current=false;setPending(false);}
+ }
+ return <dialog ref={dialog} aria-labelledby="operation-title" onCancel={e=>{if(pending)e.preventDefault();else onClose();}} className="m-auto max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-xl overflow-y-auto rounded-3xl bg-white p-5 text-slate-900 shadow-2xl backdrop:bg-slate-900/60 sm:p-7"><form onSubmit={e=>void submit(e)} className="space-y-5" aria-busy={pending}><header><h2 id="operation-title" className="text-xl font-bold">{titles[kind]}</h2><p className="portal-help mt-2">{session.table_name}{order?` · Sifariş #${order.number}`:""}</p></header>
+ {uncertain&&<div className="portal-notice portal-notice-warning"><p className="font-bold">Göndərilmiş əməliyyatın nəticəsi yoxlanmalıdır</p><ul className="mt-2 space-y-1 text-sm">{preview.map((p,i)=><li key={i}>{p}</li>)}</ul></div>}
+ <fieldset disabled={locked} className="space-y-4">
+ {kind==="items"&&<><p className="portal-help">Sayı azalt və ya məhsulu çıxarmaq üçün 0 seç. Səbəb həm sifarişdə, həm tarixçədə görünəcək.</p>{order?.items.filter(i=>i.quantity>0).map(i=><label key={i.id} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 p-3 text-sm"><span className="min-w-0 break-words">{i.name}<small className="mt-1 block text-slate-500">Hazırkı say: {i.quantity}</small></span><select aria-label={`${i.name} yeni sayı`} className="portal-input w-24 shrink-0" value={quantities[i.id]} onChange={e=>setQuantities({...quantities,[i.id]:Number(e.target.value)})}>{Array.from({length:i.quantity+1},(_,n)=><option key={n} value={n}>{n===0?"0 · Ləğv":n}</option>)}</select></label>)}<button type="button" onClick={()=>setQuantities(Object.fromEntries((order?.items||[]).map(i=>[i.id,0])))} className="portal-btn text-red-700">Bütün məhsulları ləğv et</button></>}
+ {kind==="move"&&<><p className="portal-help">Hesab, sifarişlər və çağırışlar eyni filialın boş masasına köçürüləcək. Müştərinin açıq QR səhifəsi həmin hesabı izləməyə davam edəcək.</p><label className="portal-field"><span>Yeni masa</span><select aria-label="Yeni masa" required value={target} onChange={e=>setTarget(e.target.value)} className={input}><option value="">Boş masa seç</option>{board.tables?.filter(t=>!t.busy&&t.id!==session.table_id).map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label></>}
+ {kind==="bill"&&<><p className="portal-help">Məhsullar: {exactMoney(session.totals?.subtotal||"0.00",session.currency)}. Servis haqqı endirim çıxıldıqdan sonra hesablanır.</p><div className="grid grid-cols-2 gap-3"><label className="portal-field"><span>Endirim ({session.currency})</span><input aria-label="Endirim məbləği" inputMode="decimal" maxLength={12} value={discount} onChange={e=>setDiscount(e.target.value)} className={input}/></label><label className="portal-field"><span>Servis haqqı (%)</span><input aria-label="Servis faizi" inputMode="decimal" maxLength={6} value={rate} onChange={e=>setRate(e.target.value)} className={input}/></label></div><p className="rounded-xl bg-emerald-50 p-4 font-bold text-emerald-900">Yeni yekun: {exactMoney(adjustedTotal(session.totals?.subtotal||"0.00",discount,rate)||"",session.currency)}</p></>}
+ {(kind==="items"||kind==="bill")&&<label className="portal-field"><span>Dəyişiklik səbəbi</span><textarea aria-label="Dəyişiklik səbəbi" required minLength={3} maxLength={500} rows={3} value={reason} onChange={e=>setReason(e.target.value)} className={input}/></label>}
+ {kind==="part"&&<><p className="rounded-xl bg-emerald-50 p-4 font-bold text-emerald-900">Qalan hesab: {exactMoney(remaining,session.currency)}</p><label className="portal-field"><span>Qalan məbləği neçə nəfərə bölək?</span><input aria-label="Nəfər sayı" type="number" min={2} max={50} value={people} onChange={e=>{const n=Number(e.target.value);setPeople(n);const parts=splitAmount(remaining,n);if(parts.length)setPart(parts[0]);}} className={input}/></label>{splits.length>0&&<p className="portal-help">Hissələr: {splits.map(v=>exactMoney(v,session.currency)).join(" + ")}</p>}<label className="portal-field"><span>İndi alınan məbləğ ({session.currency})</span><input aria-label="Hissə məbləği" required inputMode="decimal" maxLength={19} value={part} onChange={e=>setPart(e.target.value)} className={input}/></label><label className="portal-field"><span>Qeyd (istəyə bağlı)</span><input aria-label="Ödəniş hissəsinin qeydi" maxLength={80} value={label} onChange={e=>setLabel(e.target.value)} placeholder="Məsələn: 1-ci nəfər" className={input}/></label><label className="portal-field"><span>Alınmış ödəniş üsulu</span><select aria-label="Hissə ödəniş üsulu" value={method} onChange={e=>setMethod(e.target.value as PaymentMethod)} className={input}>{Object.entries(paymentLabels).map(([id,text])=><option key={id} value={id}>{text}</option>)}</select></label>{method==="MIXED"&&<div className="grid grid-cols-2 gap-3"><label className="portal-field"><span>Nağd</span><input aria-label="Hissənin nağd məbləği" inputMode="decimal" value={cash} onChange={e=>setCash(e.target.value)} className={input}/></label><label className="portal-field"><span>Kart</span><input aria-label="Hissənin kart məbləği" inputMode="decimal" value={card} onChange={e=>setCard(e.target.value)} className={input}/></label></div>}<p className="portal-help">Yalnız faktiki alınmış pulu qeyd et. Qalıq sıfır olanda masa avtomatik bağlanır. İlk ödənişdən sonra hesab dəyişiklikləri kilidlənir.</p></>}
+ </fieldset>{error&&<p role="alert" className="portal-notice portal-notice-error">{error}</p>}<div className="flex flex-col gap-2"><button disabled={pending} className="portal-btn portal-btn-primary w-full">{pending?"Yoxlanılır…":uncertain?"Eyni əməliyyatı yenidən yoxla":kind==="part"?"Ödəniş hissəsi alındı · Qeyd et":"Dəyişikliyi təsdiqlə"}</button><button type="button" disabled={pending} onClick={onClose} className="portal-btn w-full">Geri qayıt</button></div></form></dialog>;
+}
