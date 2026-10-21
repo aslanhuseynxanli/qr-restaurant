@@ -13,5 +13,5 @@ export default async function OrdersPage({params}:{params:Promise<{restaurantId:
   const board=await supabase.rpc("qr_staff_board",{p_restaurant_id:restaurantId,p_branch_id:branchId});
   if(board.error?.code==="42501")notFound();
   if(board.error||!board.data)throw new Error("Sifariş paneli yüklənmədi.");
-  return <main className="portal-page"><OrdersPanel key={branchId} restaurantId={restaurantId} branchId={branchId} branchName={branch.name} userId={userId} initialBoard={board.data as StaffBoard}/></main>;
+  return <main className="portal-page"><OrdersPanel key={branchId} restaurantId={restaurantId} branchId={branchId} branchName={branch.name} userId={userId} initialBoard={board.data as StaffBoard} canCorrectPayment={!workspace.super_admin&&workspace.restaurants.some(r=>r.id===restaurantId&&r.can_manage)}/></main>;
 }
